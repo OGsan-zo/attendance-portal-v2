@@ -21,7 +21,7 @@ import {
 } from '../types';
 import { format, eachDayOfInterval } from 'date-fns';
 import { getSalaryMonthKey, calculateDeductions, calculateNetSalary, isLate, calculateEarlyLeaveHours, getSalaryMonthDates } from './salary';
-import { getAllSundaysInMonth, getAllSundaysInYear } from './holidays';
+import { getAllSundaysInYear } from './holidays';
 
 // ==================== ADMIN OPERATIONS ====================
 
@@ -119,6 +119,9 @@ export const markAttendance = async (
 ) => {
   const settings = await getPortalSettings();
   const startDay = settings?.salaryStartDay || 6;
+  const officeStartTime = settings?.officeStartTime || "10:00";
+  const officeEndTime = settings?.officeEndTime || "18:00";
+  const lateBuffer = settings?.lateMarkAfterMinutes || 15;
 
   const now = new Date();
   const dateStr = format(now, 'yyyy-MM-dd');
@@ -133,9 +136,8 @@ export const markAttendance = async (
   
   if (isEarlyOff && existingRecord.exists()) {
     // Mark early off - update existing record
-    // const existingData = existingRecord.data() as AttendanceRecord;
     const outTime = Timestamp.now();
-    const earlyLeaveHours = calculateEarlyLeaveHours(outTime.toDate());
+    const earlyLeaveHours = calculateEarlyLeaveHours(outTime.toDate(), officeEndTime);
     
     await updateDoc(doc(db, recordPath), {
       outTime,
@@ -151,7 +153,7 @@ export const markAttendance = async (
 
   // Determine if late
   const inTime = Timestamp.now();
-  const isLateMark = status === 'present' && isLate(inTime.toDate());
+  const isLateMark = status === 'present' && isLate(inTime.toDate(), officeStartTime, lateBuffer);
   const finalStatus: AttendanceStatus = isLateMark ? 'late' : status;
 
   const recordData: Record<string, any> = {
@@ -169,7 +171,7 @@ export const markAttendance = async (
   }
 
   if (isLateMark) {
-    recordData.lateMinutes = calculateLateMinutes(inTime.toDate());
+    recordData.lateMinutes = calculateLateMinutes(inTime.toDate(), officeStartTime, lateBuffer);
   }
 
   // Ensure parent date document exists
@@ -182,12 +184,15 @@ export const markAttendance = async (
   });
 };
 
-const calculateLateMinutes = (time: Date): number => {
+const calculateLateMinutes = (time: Date, startTime: string = "10:00", bufferMinutes: number = 15): number => {
   const hours = time.getHours();
   const minutes = time.getMinutes();
-  const lateStartMinutes = 10 * 60 + 15; // 10:15 AM in minutes
+  
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  
+  const thresholdMinutes = startHour * 60 + startMinute + bufferMinutes;
   const currentMinutes = hours * 60 + minutes;
-  return Math.max(0, currentMinutes - lateStartMinutes);
+  return Math.max(0, currentMinutes - thresholdMinutes);
 };
 
 export const getAttendanceForDate = async (
@@ -265,6 +270,94 @@ export const deleteAttendance = async (dateStr: string, employeeUid: string) => 
   await deleteDoc(doc(db, recordPath));
 };
 
+export const adminUpsertAttendance = async (
+  employeeUid: string,
+  dateStr: string,
+  data: {
+    status?: AttendanceStatus;
+    inTime?: Date | null;
+    outTime?: Date | null;
+    leaveReason?: string;
+    mode: 'attendance' | 'leave' | 'off';
+  }
+) => {
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+  const officeStartTime = settings?.officeStartTime || "10:00";
+  const officeEndTime = settings?.officeEndTime || "18:00";
+  const lateBuffer = settings?.lateMarkAfterMinutes || 15;
+
+  const date = new Date(dateStr);
+  const salaryMonthKey = getSalaryMonthKey(date, startDay);
+  
+  const attendanceCollectionPath = `attendance_${salaryMonthKey}`;
+  const dateDocPath = `${attendanceCollectionPath}/${dateStr}`;
+  const recordPath = `${dateDocPath}/records/${employeeUid}`;
+
+  // Determine status based on mode and inputs
+  let finalStatus: AttendanceStatus = 'present'; // Default
+  let lateMinutes = 0;
+  let earlyLeaveHours = 0;
+
+  if (data.mode === 'leave') {
+    finalStatus = 'leave';
+  } else if (data.mode === 'off') {
+    finalStatus = 'off';
+  } else {
+    // Attendance mode
+    if (data.inTime) {
+      if (isLate(data.inTime, officeStartTime, lateBuffer)) {
+        finalStatus = 'late';
+        lateMinutes = calculateLateMinutes(data.inTime, officeStartTime, lateBuffer);
+      } else {
+        finalStatus = 'present';
+      }
+    } else {
+      finalStatus = 'present';
+    }
+  }
+
+  if (data.outTime) {
+    earlyLeaveHours = calculateEarlyLeaveHours(data.outTime, officeEndTime);
+  }
+
+  const recordData: any = {
+    status: finalStatus,
+    markedBy: 'admin',
+    updatedAt: serverTimestamp(),
+  };
+
+  if (data.mode === 'attendance') {
+    if (data.inTime) recordData.inTime = Timestamp.fromDate(data.inTime);
+    if (data.outTime) recordData.outTime = Timestamp.fromDate(data.outTime);
+    recordData.leaveReason = null; 
+  } else {
+    if (data.leaveReason) recordData.leaveReason = data.leaveReason;
+    recordData.inTime = null;
+    recordData.outTime = null;
+    recordData.lateMinutes = 0;
+    recordData.earlyLeaveHours = 0;
+  }
+  
+  if (finalStatus === 'late') {
+    recordData.lateMinutes = lateMinutes;
+  }
+  
+  if (data.outTime && data.mode === 'attendance') {
+    recordData.earlyLeaveHours = earlyLeaveHours;
+  }
+
+  // Ensure parent date document exists
+  await setDoc(doc(db, dateDocPath), { date: dateStr }, { merge: true });
+
+  // Use setDoc with merge to create or update
+  await setDoc(doc(db, recordPath), {
+    ...recordData,
+    employeeUid,
+    date: dateStr,
+  }, { merge: true });
+};
+
 // ==================== HOLIDAY OPERATIONS ====================
 
 export const addHoliday = async (dateStr: string, reason?: string) => {
@@ -312,7 +405,6 @@ export const deleteHoliday = async (dateStr: string) => {
 export const markAllSundaysForYear = async (year: number) => {
   const sundays = getAllSundaysInYear(year);
   
-  // Use batching or parallel requests for better performance
   const promises = sundays.map(async (sunday) => {
     const existing = await getHoliday(sunday);
     if (!existing) {
@@ -322,8 +414,6 @@ export const markAllSundaysForYear = async (year: number) => {
 
   await Promise.all(promises);
 };
-
-// ==================== REPORTS ====================
 
 export const calculateMonthlySalary = async (
   employeeUid: string,

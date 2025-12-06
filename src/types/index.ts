@@ -57,7 +57,6 @@ export interface SalaryReport {
   totalDeductions: number;
   netSalary: number;
 }
-
 export interface AttendanceStats {
   presentDays: number;
   leaveDays: number;
@@ -68,8 +67,11 @@ export interface AttendanceStats {
 }
 
 export interface PortalSettings {
-  currency: string;
+  currency?: string;
   logoUrl?: string;
   salaryStartDay?: number;
-  updatedAt: Timestamp;
+  officeStartTime?: string; // "HH:mm"
+  officeEndTime?: string;   // "HH:mm"
+  lateMarkAfterMinutes?: number;
+  updatedAt?: Timestamp;
 }

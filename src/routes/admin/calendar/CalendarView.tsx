@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Info, Loader2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
+import { format, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import { getAllEmployees, getMonthlyAttendance, getMonthHolidays } from '../../../lib/firestore';
 import { getSalaryMonthKey, getSalaryMonthDates } from "../../../lib/salary";
 import { Employee, AttendanceRecord, Holiday } from '../../../types';

@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/ui/skeleton';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
+import { format, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import { getMonthlyAttendance, getHoliday } from '../../lib/firestore';
 import { getSalaryMonthKey, getSalaryMonthDates } from "../../lib/salary";
 import { AttendanceRecord } from '../../types';

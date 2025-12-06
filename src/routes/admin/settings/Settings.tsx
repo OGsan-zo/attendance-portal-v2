@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { Select } from '../../../components/ui/select';
+
 import { getPortalSettings, updatePortalSettings } from '../../../lib/firestore';
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
@@ -14,6 +14,9 @@ export const Settings: React.FC = () => {
   const [currency, setCurrency] = useState('INR');
   const [logoUrl, setLogoUrl] = useState('');
   const [salaryStartDay, setSalaryStartDay] = useState(6);
+  const [officeStartTime, setOfficeStartTime] = useState('10:00');
+  const [officeEndTime, setOfficeEndTime] = useState('18:00');
+  const [lateMarkAfterMinutes, setLateMarkAfterMinutes] = useState(15);
 
   useEffect(() => {
     loadSettings();
@@ -26,6 +29,9 @@ export const Settings: React.FC = () => {
         setCurrency(settings.currency || 'INR');
         setLogoUrl(settings.logoUrl || '');
         setSalaryStartDay(settings.salaryStartDay || 6);
+        setOfficeStartTime(settings.officeStartTime || '10:00');
+        setOfficeEndTime(settings.officeEndTime || '18:00');
+        setLateMarkAfterMinutes(settings.lateMarkAfterMinutes || 15);
       }
     } catch (error) {
       toast.error('Failed to load settings');
@@ -41,7 +47,10 @@ export const Settings: React.FC = () => {
       await updatePortalSettings({ 
         currency, 
         logoUrl,
-        salaryStartDay 
+        salaryStartDay,
+        officeStartTime,
+        officeEndTime,
+        lateMarkAfterMinutes
       });
       toast.success('Settings updated successfully');
       // Force reload to update global state (simple approach)
@@ -103,6 +112,43 @@ export const Settings: React.FC = () => {
               <p className="text-xs text-muted-foreground">
                 The day of the month when the salary cycle begins (e.g., 6 means 6th to 5th).
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="officeStartTime">Office Start Time</Label>
+                <Input
+                  id="officeStartTime"
+                  type="time"
+                  value={officeStartTime}
+                  onChange={(e) => setOfficeStartTime(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="officeEndTime">Office End Time</Label>
+                <Input
+                  id="officeEndTime"
+                  type="time"
+                  value={officeEndTime}
+                  onChange={(e) => setOfficeEndTime(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lateMarkAfterMinutes">Late Mark Buffer (Minutes)</Label>
+                <Input
+                  id="lateMarkAfterMinutes"
+                  type="number"
+                  min="0"
+                  value={lateMarkAfterMinutes}
+                  onChange={(e) => setLateMarkAfterMinutes(parseInt(e.target.value))}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Minutes after start time before marking 'Late'.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -8,6 +8,9 @@ interface SettingsContextType {
   refreshSettings: () => Promise<void>;
   currencySymbol: string;
   salaryStartDay: number;
+  officeStartTime: string;
+  officeEndTime: string;
+  lateMarkAfterMinutes: number;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -44,9 +47,21 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const currencySymbol = getCurrencySymbol(settings?.currency || 'INR');
   const salaryStartDay = settings?.salaryStartDay || 6;
+  const officeStartTime = settings?.officeStartTime || "10:00";
+  const officeEndTime = settings?.officeEndTime || "18:00";
+  const lateMarkAfterMinutes = settings?.lateMarkAfterMinutes || 15;
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, refreshSettings, currencySymbol, salaryStartDay }}>
+    <SettingsContext.Provider value={{ 
+      settings, 
+      loading, 
+      refreshSettings, 
+      currencySymbol, 
+      salaryStartDay,
+      officeStartTime,
+      officeEndTime,
+      lateMarkAfterMinutes
+    }}>
       {children}
     </SettingsContext.Provider>
   );

@@ -29,27 +29,32 @@ export const getSalaryMonthDates = (salaryMonthKey: string, startDay: number = 6
   return { start, end };
 };
 
-export const isLate = (time: Date): boolean => {
-  const hours = time.getHours();
-  const minutes = time.getMinutes();
+export const isLate = (time: Date, startTime: string = "10:00", bufferMinutes: number = 15): boolean => {
+  const [startHour, startMinute] = startTime.split(':').map(Number);
   
-  // Late if after 10:15 AM
-  return hours > 10 || (hours === 10 && minutes > 15);
+  // Calculate late threshold time
+  const thresholdTime = new Date(time);
+  thresholdTime.setHours(startHour, startMinute + bufferMinutes, 0, 0);
+  
+  // Compare
+  return time > thresholdTime;
 };
 
-export const calculateEarlyLeaveHours = (outTime: Date): number => {
-  const hours = outTime.getHours();
-  const minutes = outTime.getMinutes();
+export const calculateEarlyLeaveHours = (outTime: Date, endTime: string = "18:00"): number => {
+  const [endHour, endMinute] = endTime.split(':').map(Number);
   
-  // Office ends at 6:00 PM (18:00)
-  const endHour = 18;
+  // Create end time date object for today
+  const officeEndTime = new Date(outTime);
+  officeEndTime.setHours(endHour, endMinute, 0, 0);
   
-  if (hours >= endHour) {
+  if (outTime >= officeEndTime) {
     return 0; // Not early
   }
   
-  const totalMinutesLeft = (endHour - hours) * 60 - minutes;
-  return Math.ceil(totalMinutesLeft / 60); // Round up to nearest hour
+  const diffMs = officeEndTime.getTime() - outTime.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  
+  return Math.ceil(diffHours); // Round up to nearest hour
 };
 
 export interface DeductionCalculation {
