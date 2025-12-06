@@ -4,11 +4,18 @@ import { Select } from '../../../components/ui/select';
 import { Badge } from '../../../components/ui/badge';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { Button } from '../../../components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Info } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { getAllEmployees, getMonthlyAttendance, getHoliday } from '../../../lib/firestore';
 import { getSalaryMonthKey, getSalaryMonthDates } from "../../../lib/salary";
-import { Employee, AttendanceRecord } from '../../../types';
+import { Employee, AttendanceRecord, Holiday } from '../../../types';
 import { toast } from 'sonner';
 
 export const CalendarView: React.FC = () => {
@@ -17,8 +24,15 @@ export const CalendarView: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [records, setRecords] = useState<Map<string, AttendanceRecord>>(new Map());
-  const [holidays, setHolidays] = useState<Set<string>>(new Set());
-  const [selectedDate, setSelectedDate] = useState<AttendanceRecord | null>(null);
+  const [holidays, setHolidays] = useState<Map<string, Holiday>>(new Map());
+  
+  // Modal State
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedDateDetails, setSelectedDateDetails] = useState<{
+    date: Date;
+    record?: AttendanceRecord;
+    holiday?: Holiday;
+  } | null>(null);
 
   useEffect(() => {
     loadEmployees();
@@ -58,16 +72,16 @@ export const CalendarView: React.FC = () => {
 
       const { start, end } = getSalaryMonthDates(salaryMonthKey);
       const allDays = eachDayOfInterval({ start, end });
-      const holidaySet = new Set<string>();
+      const holidayMap = new Map<string, Holiday>();
       
       for (const day of allDays) {
         const dateStr = format(day, 'yyyy-MM-dd');
         const holiday = await getHoliday(dateStr);
         if (holiday) {
-          holidaySet.add(dateStr);
+          holidayMap.set(dateStr, holiday);
         }
       }
-      setHolidays(holidaySet);
+      setHolidays(holidayMap);
 
     } catch (error) {
       toast.error('Failed to load calendar data');
@@ -76,32 +90,59 @@ export const CalendarView: React.FC = () => {
     }
   };
 
-  const getDayColor = (dateStr: string): string => {
-    if (holidays.has(dateStr)) return 'bg-yellow-200 hover:bg-yellow-300';
+  const getDayStyle = (dateStr: string, isCurrentMonth: boolean) => {
+    const baseStyle = "h-24 w-full p-2 border rounded-lg flex flex-col items-start justify-start transition-all hover:shadow-md relative";
+    const opacity = isCurrentMonth ? "opacity-100" : "opacity-40";
+    
+    if (holidays.has(dateStr)) {
+      return `${baseStyle} ${opacity} bg-yellow-50 border-yellow-200 hover:bg-yellow-100`;
+    }
     
     const record = records.get(dateStr);
-    if (!record) return 'bg-white hover:bg-gray-50';
+    if (!record) return `${baseStyle} ${opacity} bg-white hover:bg-gray-50`;
 
     switch (record.status) {
       case 'present':
-        return 'bg-green-200 hover:bg-green-300';
+        return `${baseStyle} ${opacity} bg-green-50 border-green-200 hover:bg-green-100`;
       case 'leave':
-        return 'bg-blue-200 hover:bg-blue-300';
+        return `${baseStyle} ${opacity} bg-emerald-50 border-emerald-200 hover:bg-emerald-100`;
       case 'off':
-        return 'bg-red-200 hover:bg-red-300';
+        return `${baseStyle} ${opacity} bg-red-50 border-red-200 hover:bg-red-100`;
       case 'late':
-        return 'bg-orange-200 hover:bg-orange-300';
+        return `${baseStyle} ${opacity} bg-orange-50 border-orange-200 hover:bg-orange-100`;
       default:
-        return 'bg-white hover:bg-gray-50';
+        return `${baseStyle} ${opacity} bg-white hover:bg-gray-50`;
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'present': return <Badge className="bg-green-500">Present</Badge>;
+      case 'leave': return <Badge className="bg-emerald-500">Leave</Badge>;
+      case 'off': return <Badge variant="destructive">Off</Badge>;
+      case 'late': return <Badge className="bg-orange-500">Late</Badge>;
+      case 'holiday': return <Badge className="bg-yellow-500 text-black">Holiday</Badge>;
+      default: return null;
+    }
+  };
+
+  const handleDayClick = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const record = records.get(dateStr);
+    const holiday = holidays.get(dateStr);
+
+    setSelectedDateDetails({
+      date: day,
+      record,
+      holiday
+    });
+    setIsDialogOpen(true);
   };
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const firstDayOfWeek = monthStart.getDay();
-
-  // const selectedEmployeeName = employees.find(e => e.uid === selectedEmployee)?.name || '';
 
   if (loading && employees.length === 0) {
     return <Skeleton className="h-96 w-full" />;
@@ -132,12 +173,12 @@ export const CalendarView: React.FC = () => {
               </Select>
             </div>
             <div className="flex items-center gap-4">
-              <span className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</span>
+              <span className="font-semibold text-lg">{format(currentMonth, 'MMMM yyyy')}</span>
               <div className="flex gap-2">
-                <Button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} variant="outline" size="sm">
+                <Button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} variant="outline" size="icon">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} variant="outline" size="sm">
+                <Button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} variant="outline" size="icon">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -145,81 +186,182 @@ export const CalendarView: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Legend */}
+          <div className="mb-6 flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-100 border border-green-200 rounded" />
+              <span>Present</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-emerald-100 border border-emerald-200 rounded" />
+              <span>Leave</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded" />
+              <span>Late</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-100 border border-red-200 rounded" />
+              <span>Off</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded" />
+              <span>Holiday</span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-7 gap-2">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center font-semibold text-sm p-2">
+              <div key={day} className="text-center font-semibold text-muted-foreground py-2">
                 {day}
               </div>
             ))}
 
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`empty-${i}`} className="p-2" />
+              <div key={`empty-${i}`} className="h-24" />
             ))}
 
             {calendarDays.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
-              const dayColor = getDayColor(dateStr);
+              const record = records.get(dateStr);
+              const holiday = holidays.get(dateStr);
+              const isCurrent = isSameMonth(day, currentMonth);
 
               return (
                 <button
                   key={dateStr}
-                  onClick={() => setSelectedDate(records.get(dateStr) || null)}
-                  className={`p-3 rounded-lg border transition-all ${dayColor}`}
+                  onClick={() => handleDayClick(day)}
+                  className={getDayStyle(dateStr, isCurrent)}
                 >
-                  <div className="text-center font-semibold">{format(day, 'd')}</div>
+                  <span className="font-semibold mb-1">{format(day, 'd')}</span>
+                  
+                  {holiday && (
+                    <span className="text-xs text-yellow-700 font-medium truncate w-full text-left">
+                      {holiday.reason || 'Holiday'}
+                    </span>
+                  )}
+                  
+                  {record && (
+                    <div className="flex flex-col items-start w-full gap-1">
+                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full w-fit
+                        ${record.status === 'present' ? 'bg-green-200 text-green-800' :
+                          record.status === 'leave' ? 'bg-emerald-200 text-emerald-800' :
+                          record.status === 'late' ? 'bg-orange-200 text-orange-800' :
+                          record.status === 'off' ? 'bg-red-200 text-red-800' : ''}
+                      `}>
+                        {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                      </span>
+                      {record.inTime && (
+                        <span className="text-[10px] text-muted-foreground">
+                          In: {format(record.inTime.toDate(), 'hh:mm a')}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-green-200 rounded border" />
-              <span className="text-sm">Present</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-blue-200 rounded border" />
-              <span className="text-sm">Leave</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-red-200 rounded border" />
-              <span className="text-sm">Off</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-yellow-200 rounded border" />
-              <span className="text-sm">Holiday</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-orange-200 rounded border" />
-              <span className="text-sm">Late</span>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
-      {selectedDate && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{format(new Date(selectedDate.date), 'MMMM dd, yyyy')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">Status:</span>
-              <Badge>{selectedDate.status.toUpperCase()}</Badge>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              {selectedDateDetails && format(selectedDateDetails.date, 'MMMM dd, yyyy')}
+            </DialogTitle>
+            <DialogDescription>
+              Daily attendance details
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedDateDetails && (
+            <div className="space-y-4 py-4">
+              {/* Status Section */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <span className="font-medium">Status</span>
+                {selectedDateDetails.holiday ? (
+                  getStatusBadge('holiday')
+                ) : selectedDateDetails.record ? (
+                  getStatusBadge(selectedDateDetails.record.status)
+                ) : (
+                  <Badge variant="outline">No Record</Badge>
+                )}
+              </div>
+
+              {/* Holiday Details */}
+              {selectedDateDetails.holiday && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold flex items-center gap-2 text-yellow-600">
+                    <Info className="h-4 w-4" /> Holiday Information
+                  </h4>
+                  <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
+                    <p className="text-sm font-medium text-yellow-900">
+                      Reason: {selectedDateDetails.holiday.reason || 'Public Holiday'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Attendance Details */}
+              {selectedDateDetails.record && (
+                <div className="space-y-4">
+                  {/* Timings */}
+                  {(selectedDateDetails.record.status === 'present' || selectedDateDetails.record.status === 'late') && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 bg-slate-50 rounded-lg space-y-1">
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
+                          <Clock className="h-3 w-3" /> In Time
+                        </div>
+                        <div className="font-mono font-medium">
+                          {selectedDateDetails.record.inTime 
+                            ? format(selectedDateDetails.record.inTime.toDate(), 'hh:mm a')
+                            : '--:--'}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-lg space-y-1">
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold">
+                          <Clock className="h-3 w-3" /> Out Time
+                        </div>
+                        <div className="font-mono font-medium">
+                          {selectedDateDetails.record.outTime 
+                            ? format(selectedDateDetails.record.outTime.toDate(), 'hh:mm a')
+                            : '--:--'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leave Details */}
+                  {selectedDateDetails.record.status === 'leave' && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold flex items-center gap-2 text-emerald-600">
+                        <Info className="h-4 w-4" /> Leave Details
+                      </h4>
+                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <p className="text-sm font-medium text-emerald-900">
+                          Reason: {selectedDateDetails.record.leaveReason || 'No reason provided'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Off Details */}
+                  {selectedDateDetails.record.status === 'off' && (
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
+                      <p className="text-sm font-medium text-red-900">
+                        Weekly Off / Non-working Day
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            {selectedDate.inTime && (
-              <div>
-                <span className="font-semibold">In Time:</span> {format(selectedDate.inTime.toDate(), 'hh:mm a')}
-              </div>
-            )}
-            {selectedDate.outTime && (
-              <div>
-                <span className="font-semibold">Out Time:</span> {format(selectedDate.outTime.toDate(), 'hh:mm a')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
