@@ -73,9 +73,14 @@ export const addEmployee = async (
     monthlySalary,
     createdBy,
     createdAt: serverTimestamp() as Timestamp,
+    isActive: true,
   };
 
   await setDoc(doc(db, 'employees', uid), employeeData);
+};
+
+export const toggleEmployeeStatus = async (uid: string, isActive: boolean) => {
+  await updateDoc(doc(db, 'employees', uid), { isActive });
 };
 
 export const updateEmployee = async (

@@ -1,15 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Skeleton } from '../../../components/ui/skeleton';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { getAllEmployees, deleteEmployee } from '../../../lib/firestore';
-import { Employee } from '../../../types';
-import { toast } from 'sonner';
-import { AddEmployeeDialog } from './AddEmployeeDialog';
-import { EditEmployeeDialog } from './EditEmployeeDialog';
-import { useSettings } from '../../../context/SettingsContext';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table";
+import { Skeleton } from "../../../components/ui/skeleton";
+import { Plus, Edit, Trash2, Ban, CheckCircle } from "lucide-react";
+import {
+  getAllEmployees,
+  deleteEmployee,
+  toggleEmployeeStatus,
+} from "../../../lib/firestore";
+import { Employee } from "../../../types";
+import { toast } from "sonner";
+import { AddEmployeeDialog } from "./AddEmployeeDialog";
+import { EditEmployeeDialog } from "./EditEmployeeDialog";
+import { useSettings } from "../../../context/SettingsContext";
+import { Badge } from "../../../components/ui/badge";
 
 export const EmployeeList: React.FC = () => {
   const { currencySymbol } = useSettings();
@@ -28,10 +45,28 @@ export const EmployeeList: React.FC = () => {
       const data = await getAllEmployees();
       setEmployees(data);
     } catch (error) {
-      console.error('Error loading employees:', error);
-      toast.error('Failed to load employees');
+      console.error("Error loading employees:", error);
+      toast.error("Failed to load employees");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (employee: Employee) => {
+    const newStatus = !employee.isActive;
+    const action = newStatus ? "activate" : "deactivate";
+
+    if (
+      !confirm(`Are you sure you want to ${action} ${employee.name}'s account?`)
+    )
+      return;
+
+    try {
+      await toggleEmployeeStatus(employee.uid, newStatus);
+      toast.success(`Employee account ${action}d successfully`);
+      await loadEmployees();
+    } catch (error) {
+      toast.error(`Failed to ${action} employee account`);
     }
   };
 
@@ -40,10 +75,10 @@ export const EmployeeList: React.FC = () => {
 
     try {
       await deleteEmployee(uid);
-      toast.success('Employee deleted successfully');
+      toast.success("Employee deleted successfully");
       await loadEmployees();
     } catch (error) {
-      toast.error('Failed to delete employee');
+      toast.error("Failed to delete employee");
     }
   };
 
@@ -80,6 +115,7 @@ export const EmployeeList: React.FC = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Employee ID</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Monthly Salary</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -87,19 +123,55 @@ export const EmployeeList: React.FC = () => {
             <TableBody>
               {employees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground"
+                  >
                     No employees found. Add your first employee to get started.
                   </TableCell>
                 </TableRow>
               ) : (
-                employees.map(employee => (
+                employees.map((employee) => (
                   <TableRow key={employee.uid}>
-                    <TableCell className="font-medium">{employee.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {employee.name}
+                    </TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>{employee.empId}</TableCell>
-                    <TableCell>{currencySymbol}{employee.monthlySalary.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={employee.isActive ? "success" : "destructive"}
+                      >
+                        {employee.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {currencySymbol}
+                      {employee.monthlySalary.toLocaleString()}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          onClick={() => handleToggleStatus(employee)}
+                          variant="outline"
+                          size="sm"
+                          title={
+                            employee.isActive
+                              ? "Deactivate Account"
+                              : "Activate Account"
+                          }
+                          className={
+                            employee.isActive
+                              ? "text-red-600 hover:text-red-700 hover:bg-red-50"
+                              : "text-green-600 hover:text-green-700 hover:bg-green-50"
+                          }
+                        >
+                          {employee.isActive ? (
+                            <Ban className="h-4 w-4" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Button
                           onClick={() => setEditingEmployee(employee)}
                           variant="outline"
@@ -108,7 +180,9 @@ export const EmployeeList: React.FC = () => {
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
-                          onClick={() => handleDelete(employee.uid, employee.name)}
+                          onClick={() =>
+                            handleDelete(employee.uid, employee.name)
+                          }
                           variant="destructive"
                           size="sm"
                         >

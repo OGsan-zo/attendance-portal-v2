@@ -18,6 +18,7 @@ export interface Employee {
   monthlySalary: number; // in INR
   createdBy: string; // admin uid
   createdAt: Timestamp;
+  isActive?: boolean;
 }
 
 export interface AttendanceRecord {
