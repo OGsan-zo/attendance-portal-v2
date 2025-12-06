@@ -29,7 +29,7 @@ import { Label } from "../../../components/ui/label";
 import { Select } from "../../../components/ui/select";
 import { Badge } from "../../../components/ui/badge";
 import { toast } from "sonner";
-import { Clock, CheckCircle, XCircle, AlertCircle, Search } from "lucide-react";
+import { Clock, CheckCircle, XCircle } from "lucide-react";
 import {
   getAllEmployees,
   getPortalSettings,
@@ -38,7 +38,7 @@ import {
 import { getSalaryMonthKey, getSalaryMonthDates } from "../../../lib/salary";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
-import { Employee, AttendanceRecord } from "../../../types";
+import { AttendanceRecord } from "../../../types";
 
 interface OvertimeRecord extends AttendanceRecord {
   id: string; // employeeUid
@@ -53,7 +53,6 @@ export const OvertimePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(
     startOfMonth(new Date())
   );
-  const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Dialog State
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -78,7 +77,6 @@ export const OvertimePage: React.FC = () => {
 
       // 1. Fetch Employees
       const emps = await getAllEmployees();
-      setEmployees(emps);
       const empMap = new Map(emps.map((e) => [e.uid, e]));
 
       // 2. Determine Date Range
