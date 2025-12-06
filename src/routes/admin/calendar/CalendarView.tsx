@@ -11,15 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../components/ui/dialog";
-import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Info, Loader2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
-import { getAllEmployees, getMonthlyAttendance, getHoliday } from '../../../lib/firestore';
+import { getAllEmployees, getMonthlyAttendance, getMonthHolidays } from '../../../lib/firestore';
 import { getSalaryMonthKey, getSalaryMonthDates } from "../../../lib/salary";
 import { Employee, AttendanceRecord, Holiday } from '../../../types';
 import { toast } from 'sonner';
 
 export const CalendarView: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -53,6 +54,8 @@ export const CalendarView: React.FC = () => {
       }
     } catch (error) {
       toast.error('Failed to load employees');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,33 +63,50 @@ export const CalendarView: React.FC = () => {
     if (!selectedEmployee) return;
 
     try {
-      setLoading(true);
-      const salaryMonthKey = getSalaryMonthKey(currentMonth);
+      setCalendarLoading(true);
       
-      const monthlyRecords = await getMonthlyAttendance(selectedEmployee, salaryMonthKey);
-      const recordsMap = new Map<string, AttendanceRecord>();
-      monthlyRecords.forEach(record => {
-        recordsMap.set(record.date, record);
+      // A calendar month (e.g., Dec 1 - Dec 31) spans two salary months:
+      // 1. Dec 1 - Dec 5 (belongs to Nov Salary Month: 2025_11)
+      // 2. Dec 6 - Dec 31 (belongs to Dec Salary Month: 2025_12)
+      
+      const monthStart = startOfMonth(currentMonth);
+      const monthEnd = endOfMonth(currentMonth);
+      
+      const startKey = getSalaryMonthKey(monthStart);
+      const endKey = getSalaryMonthKey(monthEnd);
+      
+      const keysToFetch = new Set([startKey, endKey]);
+      
+      const promises = Array.from(keysToFetch).map(async (key) => {
+        const [recs, hols] = await Promise.all([
+          getMonthlyAttendance(selectedEmployee, key),
+          getMonthHolidays(key)
+        ]);
+        return { recs, hols };
       });
-      setRecords(recordsMap);
 
-      const { start, end } = getSalaryMonthDates(salaryMonthKey);
-      const allDays = eachDayOfInterval({ start, end });
+      const results = await Promise.all(promises);
+
+      const recordsMap = new Map<string, AttendanceRecord>();
       const holidayMap = new Map<string, Holiday>();
-      
-      for (const day of allDays) {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const holiday = await getHoliday(dateStr);
-        if (holiday) {
-          holidayMap.set(dateStr, holiday);
-        }
-      }
+
+      results.forEach(({ recs, hols }) => {
+        recs.forEach(record => {
+          recordsMap.set(record.date, record);
+        });
+        hols.forEach(holiday => {
+          holidayMap.set(holiday.date, holiday);
+        });
+      });
+
+      setRecords(recordsMap);
       setHolidays(holidayMap);
 
     } catch (error) {
+      console.error(error);
       toast.error('Failed to load calendar data');
     } finally {
-      setLoading(false);
+      setCalendarLoading(false);
     }
   };
 
@@ -144,7 +164,7 @@ export const CalendarView: React.FC = () => {
   const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const firstDayOfWeek = monthStart.getDay();
 
-  if (loading && employees.length === 0) {
+  if (loading) {
     return <Skeleton className="h-96 w-full" />;
   }
 
@@ -155,7 +175,7 @@ export const CalendarView: React.FC = () => {
         <p className="text-muted-foreground">View employee attendance calendar</p>
       </div>
 
-      <Card>
+      <Card className="relative">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-2">
@@ -164,6 +184,7 @@ export const CalendarView: React.FC = () => {
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
                 className="w-64"
+                disabled={calendarLoading}
               >
                 {employees.map(emp => (
                   <option key={emp.uid} value={emp.uid}>
@@ -175,10 +196,20 @@ export const CalendarView: React.FC = () => {
             <div className="flex items-center gap-4">
               <span className="font-semibold text-lg">{format(currentMonth, 'MMMM yyyy')}</span>
               <div className="flex gap-2">
-                <Button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} variant="outline" size="icon">
+                <Button 
+                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} 
+                  variant="outline" 
+                  size="icon"
+                  disabled={calendarLoading}
+                >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} variant="outline" size="icon">
+                <Button 
+                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} 
+                  variant="outline" 
+                  size="icon"
+                  disabled={calendarLoading}
+                >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -186,6 +217,16 @@ export const CalendarView: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Loading Overlay */}
+          {calendarLoading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-medium text-muted-foreground">Loading data...</span>
+              </div>
+            </div>
+          )}
+
           {/* Legend */}
           <div className="mb-6 flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2">
@@ -232,6 +273,7 @@ export const CalendarView: React.FC = () => {
                   key={dateStr}
                   onClick={() => handleDayClick(day)}
                   className={getDayStyle(dateStr, isCurrent)}
+                  disabled={calendarLoading}
                 >
                   <span className="font-semibold mb-1">{format(day, 'd')}</span>
                   

@@ -18,8 +18,8 @@ import {
   SalaryReport,
   AttendanceStatus 
 } from '../types';
-import { format } from 'date-fns';
-import { getSalaryMonthKey, calculateDeductions, calculateNetSalary, isLate, calculateEarlyLeaveHours } from './salary';
+import { format, eachDayOfInterval } from 'date-fns';
+import { getSalaryMonthKey, calculateDeductions, calculateNetSalary, isLate, calculateEarlyLeaveHours, getSalaryMonthDates } from './salary';
 import { getAllSundaysInMonth } from './holidays';
 
 // ==================== ADMIN OPERATIONS ====================
@@ -153,6 +153,9 @@ export const markAttendance = async (
     recordData.lateMinutes = calculateLateMinutes(inTime.toDate());
   }
 
+  // Ensure parent date document exists
+  await setDoc(doc(db, dateDocPath), { date: dateStr }, { merge: true });
+
   await setDoc(doc(db, recordPath), {
     ...recordData,
     employeeUid,
@@ -190,21 +193,22 @@ export const getMonthlyAttendance = async (
   employeeUid: string,
   salaryMonthKey: string
 ): Promise<AttendanceRecord[]> => {
-  const attendanceCollectionPath = `attendance_${salaryMonthKey}`;
+  const { start, end } = getSalaryMonthDates(salaryMonthKey);
+  const days = eachDayOfInterval({ start, end });
   
-  // Get all date documents
-  const datesSnapshot = await getDocs(collection(db, attendanceCollectionPath));
-  
-  const records: AttendanceRecord[] = [];
-  
-  for (const dateDoc of datesSnapshot.docs) {
-    const recordDoc = await getDoc(doc(db, `${attendanceCollectionPath}/${dateDoc.id}/records`, employeeUid));
+  const promises = days.map(async (day) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const recordPath = `attendance_${salaryMonthKey}/${dateStr}/records/${employeeUid}`;
+    const recordDoc = await getDoc(doc(db, recordPath));
+    
     if (recordDoc.exists()) {
-      records.push(recordDoc.data() as AttendanceRecord);
+      return recordDoc.data() as AttendanceRecord;
     }
-  }
-  
-  return records.sort((a, b) => a.date.localeCompare(b.date));
+    return null;
+  });
+
+  const results = await Promise.all(promises);
+  return results.filter((record): record is AttendanceRecord => record !== null);
 };
 
 export const updateAttendance = async (
@@ -255,7 +259,7 @@ export const getHoliday = async (dateStr: string): Promise<Holiday | null> => {
 };
 
 export const getMonthHolidays = async (salaryMonthKey: string): Promise<Holiday[]> => {
-  const { start, end } = require('./salary').getSalaryMonthDates(salaryMonthKey);
+  const { start, end } = getSalaryMonthDates(salaryMonthKey);
   const startStr = format(start, 'yyyy-MM-dd');
   const endStr = format(end, 'yyyy-MM-dd');
 
