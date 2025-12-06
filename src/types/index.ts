@@ -48,6 +48,7 @@ export interface SalaryReport {
   presentDays: number;
   leaveDays: number;
   offDays: number;
+  unmarkedDays: number;
   lateCount: number;
   earlyLeaveHours: number;
   offDeduction: number;
@@ -64,4 +65,11 @@ export interface AttendanceStats {
   lateDays: number;
   earlyLeaveHours: number;
   estimatedNetSalary: number;
+}
+
+export interface PortalSettings {
+  currency: string;
+  logoUrl?: string;
+  salaryStartDay?: number;
+  updatedAt: Timestamp;
 }

@@ -9,8 +9,10 @@ import { Employee } from '../../../types';
 import { toast } from 'sonner';
 import { AddEmployeeDialog } from './AddEmployeeDialog';
 import { EditEmployeeDialog } from './EditEmployeeDialog';
+import { useSettings } from '../../../context/SettingsContext';
 
 export const EmployeeList: React.FC = () => {
+  const { currencySymbol } = useSettings();
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -95,7 +97,7 @@ export const EmployeeList: React.FC = () => {
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>{employee.empId}</TableCell>
-                    <TableCell>₹{employee.monthlySalary.toLocaleString()}</TableCell>
+                    <TableCell>{currencySymbol}{employee.monthlySalary.toLocaleString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

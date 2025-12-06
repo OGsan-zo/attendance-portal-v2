@@ -16,7 +16,8 @@ import {
   AttendanceRecord, 
   Holiday, 
   SalaryReport,
-  AttendanceStatus 
+  AttendanceStatus,
+  PortalSettings
 } from '../types';
 import { format, eachDayOfInterval } from 'date-fns';
 import { getSalaryMonthKey, calculateDeductions, calculateNetSalary, isLate, calculateEarlyLeaveHours, getSalaryMonthDates } from './salary';
@@ -92,6 +93,21 @@ export const deleteEmployee = async (uid: string) => {
   await deleteDoc(doc(db, 'employees', uid));
 };
 
+// ==================== SETTINGS OPERATIONS ====================
+
+export const getPortalSettings = async (): Promise<PortalSettings | null> => {
+  const settingsDoc = await getDoc(doc(db, 'settings', 'portal'));
+  if (!settingsDoc.exists()) return null;
+  return settingsDoc.data() as PortalSettings;
+};
+
+export const updatePortalSettings = async (settings: Partial<PortalSettings>) => {
+  await setDoc(doc(db, 'settings', 'portal'), {
+    ...settings,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+};
+
 // ==================== ATTENDANCE OPERATIONS ====================
 
 export const markAttendance = async (
@@ -101,9 +117,12 @@ export const markAttendance = async (
   leaveReason?: string,
   isEarlyOff: boolean = false
 ) => {
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
   const now = new Date();
   const dateStr = format(now, 'yyyy-MM-dd');
-  const salaryMonthKey = getSalaryMonthKey(now);
+  const salaryMonthKey = getSalaryMonthKey(now, startDay);
   
   const attendanceCollectionPath = `attendance_${salaryMonthKey}`;
   const dateDocPath = `${attendanceCollectionPath}/${dateStr}`;
@@ -175,8 +194,11 @@ export const getAttendanceForDate = async (
   dateStr: string,
   employeeUid?: string
 ): Promise<AttendanceRecord[]> => {
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
   const date = new Date(dateStr);
-  const salaryMonthKey = getSalaryMonthKey(date);
+  const salaryMonthKey = getSalaryMonthKey(date, startDay);
   const recordsPath = `attendance_${salaryMonthKey}/${dateStr}/records`;
 
   if (employeeUid) {
@@ -193,7 +215,10 @@ export const getMonthlyAttendance = async (
   employeeUid: string,
   salaryMonthKey: string
 ): Promise<AttendanceRecord[]> => {
-  const { start, end } = getSalaryMonthDates(salaryMonthKey);
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
+  const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
   const days = eachDayOfInterval({ start, end });
   
   const promises = days.map(async (day) => {
@@ -216,8 +241,11 @@ export const updateAttendance = async (
   employeeUid: string,
   updates: Partial<AttendanceRecord>
 ) => {
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
   const date = new Date(dateStr);
-  const salaryMonthKey = getSalaryMonthKey(date);
+  const salaryMonthKey = getSalaryMonthKey(date, startDay);
   const recordPath = `attendance_${salaryMonthKey}/${dateStr}/records/${employeeUid}`;
 
   await updateDoc(doc(db, recordPath), {
@@ -227,8 +255,11 @@ export const updateAttendance = async (
 };
 
 export const deleteAttendance = async (dateStr: string, employeeUid: string) => {
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
   const date = new Date(dateStr);
-  const salaryMonthKey = getSalaryMonthKey(date);
+  const salaryMonthKey = getSalaryMonthKey(date, startDay);
   const recordPath = `attendance_${salaryMonthKey}/${dateStr}/records/${employeeUid}`;
 
   await deleteDoc(doc(db, recordPath));
@@ -259,7 +290,10 @@ export const getHoliday = async (dateStr: string): Promise<Holiday | null> => {
 };
 
 export const getMonthHolidays = async (salaryMonthKey: string): Promise<Holiday[]> => {
-  const { start, end } = getSalaryMonthDates(salaryMonthKey);
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
+  const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
   const startStr = format(start, 'yyyy-MM-dd');
   const endStr = format(end, 'yyyy-MM-dd');
 
@@ -298,39 +332,73 @@ export const calculateMonthlySalary = async (
   const employee = await getEmployee(employeeUid);
   if (!employee) return null;
 
-  const records = await getMonthlyAttendance(employeeUid, salaryMonthKey);
+  const settings = await getPortalSettings();
+  const startDay = settings?.salaryStartDay || 6;
+
+  const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
+  const allDays = eachDayOfInterval({ start, end });
+  const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+
+  const [records, holidays] = await Promise.all([
+    getMonthlyAttendance(employeeUid, salaryMonthKey),
+    getMonthHolidays(salaryMonthKey)
+  ]);
+
+  const recordsMap = new Map(records.map(r => [r.date, r]));
+  const holidaysSet = new Set(holidays.map(h => h.date));
 
   let presentDays = 0;
   let leaveDays = 0;
   let offDays = 0;
+  let unmarkedDays = 0;
   let lateCount = 0;
   let earlyLeaveHours = 0;
 
-  records.forEach(record => {
-    switch (record.status) {
-      case 'present':
-        presentDays++;
-        break;
-      case 'leave':
-        leaveDays++;
-        break;
-      case 'off':
-        offDays++;
-        break;
-      case 'late':
-        lateCount++;
-        presentDays++; // Late is still present
-        break;
-    }
+  allDays.forEach(day => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    
+    // Skip future days
+    if (dateStr > todayStr) return;
 
-    if (record.earlyLeaveHours) {
-      earlyLeaveHours += record.earlyLeaveHours;
+    const record = recordsMap.get(dateStr);
+    const isHoliday = holidaysSet.has(dateStr);
+
+    if (record) {
+      switch (record.status) {
+        case 'present':
+          presentDays++;
+          break;
+        case 'leave':
+          leaveDays++;
+          break;
+        case 'off':
+          offDays++;
+          break;
+        case 'late':
+          lateCount++;
+          presentDays++; // Late is still present
+          break;
+      }
+
+      if (record.earlyLeaveHours) {
+        earlyLeaveHours += record.earlyLeaveHours;
+      }
+    } else {
+      // No record found
+      if (!isHoliday) {
+        // Not a holiday, so it's unmarked/absent
+        unmarkedDays++;
+      }
     }
   });
 
+  // Treat unmarked days as OFF days for deduction
+  const totalOffDaysForDeduction = offDays + unmarkedDays;
+
   const deductions = calculateDeductions(
     employee.monthlySalary,
-    offDays,
+    totalOffDaysForDeduction,
     lateCount,
     earlyLeaveHours
   );
@@ -345,6 +413,7 @@ export const calculateMonthlySalary = async (
     presentDays,
     leaveDays,
     offDays,
+    unmarkedDays,
     lateCount,
     earlyLeaveHours,
     offDeduction: deductions.offDeduction,

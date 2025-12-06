@@ -13,8 +13,10 @@ import { CheckCircle, XCircle, Coffee, Clock } from 'lucide-react';
 import { markAttendance, getAttendanceForDate, getMonthlyAttendance } from '../../lib/firestore';
 import { getSalaryMonthKey, calculateDeductions, calculateNetSalary } from "../../lib/salary";
 import { AttendanceRecord, Employee, AttendanceStats } from '../../types';
+import { useSettings } from '../../context/SettingsContext';
 
 export const EmployeeDashboard: React.FC = () => {
+  const { currencySymbol, salaryStartDay } = useSettings();
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
@@ -28,7 +30,7 @@ export const EmployeeDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [user, salaryStartDay]);
 
   const loadData = async () => {
     if (!user) return;
@@ -53,7 +55,7 @@ export const EmployeeDashboard: React.FC = () => {
       setRecentRecords(recent);
 
       // Load monthly stats
-      const salaryMonthKey = getSalaryMonthKey();
+      const salaryMonthKey = getSalaryMonthKey(new Date(), salaryStartDay);
       const monthlyRecords = await getMonthlyAttendance(user.uid, salaryMonthKey);
       
       let presentDays = 0;
@@ -297,7 +299,7 @@ export const EmployeeDashboard: React.FC = () => {
             </div>
             <div className="text-center p-4 bg-primary/10 rounded-lg">
               <p className="text-3xl font-bold text-primary">
-                ₹{stats?.estimatedNetSalary?.toLocaleString() || 0}
+                {currencySymbol}{stats?.estimatedNetSalary?.toLocaleString() || 0}
               </p>
               <p className="text-sm text-muted-foreground">Estimated Net Salary</p>
             </div>

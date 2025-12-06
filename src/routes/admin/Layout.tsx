@@ -1,13 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/button';
-import { LogOut, LayoutDashboard, Users, UserCog, Calendar, ClipboardList, FileText, Sun } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, UserCog, Calendar, ClipboardList, FileText, Sun, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { getPortalSettings } from '../../lib/firestore';
 
 export const AdminLayout: React.FC = () => {
   const { profile, signOut } = useAuth();
   const location = useLocation();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const settings = await getPortalSettings();
+      if (settings?.logoUrl) {
+        setLogoUrl(settings.logoUrl);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -28,6 +40,7 @@ export const AdminLayout: React.FC = () => {
     { path: '/admin/calendar', label: 'Calendar', icon: Calendar },
     { path: '/admin/holidays', label: 'Holidays', icon: Sun },
     { path: '/admin/reports', label: 'Reports', icon: FileText },
+    { path: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -36,7 +49,11 @@ export const AdminLayout: React.FC = () => {
         {/* Sidebar */}
         <aside className="w-64 bg-white border-r min-h-screen sticky top-0">
           <div className="p-6">
-            <h1 className="text-2xl font-bold text-primary">Admin Portal</h1>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Portal Logo" className="h-12 w-auto mb-2 object-contain" />
+            ) : (
+              <h1 className="text-2xl font-bold text-primary">Admin Portal</h1>
+            )}
             <p className="text-sm text-muted-foreground mt-1">
               {profile?.name || 'Administrator'}
             </p>

@@ -6,6 +6,7 @@ import { Label } from '../../../components/ui/label';
 import { updateEmployee } from '../../../lib/firestore';
 import { Employee } from '../../../types';
 import { toast } from 'sonner';
+import { useSettings } from '../../../context/SettingsContext';
 
 interface EditEmployeeDialogProps {
   employee: Employee;
@@ -20,6 +21,7 @@ export const EditEmployeeDialog: React.FC<EditEmployeeDialogProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { currencySymbol } = useSettings();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: employee.name,
@@ -101,7 +103,7 @@ export const EditEmployeeDialog: React.FC<EditEmployeeDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="salary">Monthly Salary (INR) *</Label>
+            <Label htmlFor="salary">Monthly Salary ({currencySymbol}) *</Label>
             <Input
               id="salary"
               type="number"

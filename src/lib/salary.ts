@@ -5,13 +5,13 @@ import { format, subMonths } from 'date-fns';
  * Example: Dec 6, 2025 - Jan 5, 2026 = attendance_2025_12
  */
 
-export const getSalaryMonthKey = (date: Date = new Date()): string => {
+export const getSalaryMonthKey = (date: Date = new Date(), startDay: number = 6): string => {
   const day = date.getDate();
   // const month = date.getMonth();
   // const year = date.getFullYear();
 
-  // If date is before 6th, use previous month
-  if (day < 6) {
+  // If date is before startDay, use previous month
+  if (day < startDay) {
     const prevMonth = subMonths(date, 1);
     return format(prevMonth, 'yyyy_MM');
   }
@@ -19,12 +19,12 @@ export const getSalaryMonthKey = (date: Date = new Date()): string => {
   return format(date, 'yyyy_MM');
 };
 
-export const getSalaryMonthDates = (salaryMonthKey: string): { start: Date; end: Date } => {
+export const getSalaryMonthDates = (salaryMonthKey: string, startDay: number = 6): { start: Date; end: Date } => {
   // salaryMonthKey format: YYYY_MM
   const [year, month] = salaryMonthKey.split('_').map(Number);
   
-  const start = new Date(year, month - 1, 6); // 6th of the month
-  const end = new Date(year, month, 5); // 5th of next month
+  const start = new Date(year, month - 1, startDay); // startDay of the month
+  const end = new Date(year, month, startDay - 1); // (startDay - 1) of next month
   
   return { start, end };
 };

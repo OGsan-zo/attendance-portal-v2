@@ -22,55 +22,60 @@ import { AttendanceView } from './routes/admin/attendance/AttendanceView';
 import { CalendarView } from './routes/admin/calendar/CalendarView';
 import { HolidayManagement } from './routes/admin/holidays/HolidayManagement';
 import { SalaryReports } from './routes/admin/reports/SalaryReports';
+import { Settings } from './routes/admin/settings/Settings';
+import { SettingsProvider } from './context/SettingsContext';
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/access-denied" element={<AccessDenied />} />
+      <SettingsProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/access-denied" element={<AccessDenied />} />
 
-          {/* Employee Routes */}
-          <Route
-            path="/"
-            element={
-              <RequireAuth role="employee">
-                <EmployeeLayout />
-              </RequireAuth>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<EmployeeDashboard />} />
-            <Route path="calendar" element={<EmployeeCalendar />} />
-          </Route>
+            {/* Employee Routes */}
+            <Route
+              path="/"
+              element={
+                <RequireAuth role="employee">
+                  <EmployeeLayout />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<EmployeeDashboard />} />
+              <Route path="calendar" element={<EmployeeCalendar />} />
+            </Route>
 
-          {/* Admin Routes */}
-          <Route
-            path="/admin"
-            element={
-              <RequireAuth role="admin">
-                <AdminLayout />
-              </RequireAuth>
-            }
-          >
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="employees" element={<EmployeeList />} />
-            <Route path="admins" element={<AdminList />} />
-            <Route path="attendance" element={<AttendanceView />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="holidays" element={<HolidayManagement />} />
-            <Route path="reports" element={<SalaryReports />} />
-          </Route>
+            {/* Admin Routes */}
+            <Route
+              path="/admin"
+              element={
+                <RequireAuth role="admin">
+                  <AdminLayout />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="employees" element={<EmployeeList />} />
+              <Route path="admins" element={<AdminList />} />
+              <Route path="attendance" element={<AttendanceView />} />
+              <Route path="calendar" element={<CalendarView />} />
+              <Route path="holidays" element={<HolidayManagement />} />
+              <Route path="reports" element={<SalaryReports />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
 
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
-      
-      <Toaster position="top-right" richColors />
+            {/* Catch all */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+        
+        <Toaster position="top-right" richColors />
+      </SettingsProvider>
     </AuthProvider>
   );
 }

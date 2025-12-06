@@ -18,7 +18,10 @@ import { getSalaryMonthKey, getSalaryMonthDates } from "../../../lib/salary";
 import { Employee, AttendanceRecord, Holiday } from '../../../types';
 import { toast } from 'sonner';
 
+import { useSettings } from '../../../context/SettingsContext';
+
 export const CalendarView: React.FC = () => {
+  const { salaryStartDay } = useSettings();
   const [loading, setLoading] = useState(true);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -43,7 +46,7 @@ export const CalendarView: React.FC = () => {
     if (selectedEmployee) {
       loadCalendarData();
     }
-  }, [selectedEmployee, currentMonth]);
+  }, [selectedEmployee, currentMonth, salaryStartDay]);
 
   const loadEmployees = async () => {
     try {
@@ -65,15 +68,11 @@ export const CalendarView: React.FC = () => {
     try {
       setCalendarLoading(true);
       
-      // A calendar month (e.g., Dec 1 - Dec 31) spans two salary months:
-      // 1. Dec 1 - Dec 5 (belongs to Nov Salary Month: 2025_11)
-      // 2. Dec 6 - Dec 31 (belongs to Dec Salary Month: 2025_12)
-      
       const monthStart = startOfMonth(currentMonth);
       const monthEnd = endOfMonth(currentMonth);
       
-      const startKey = getSalaryMonthKey(monthStart);
-      const endKey = getSalaryMonthKey(monthEnd);
+      const startKey = getSalaryMonthKey(monthStart, salaryStartDay);
+      const endKey = getSalaryMonthKey(monthEnd, salaryStartDay);
       
       const keysToFetch = new Set([startKey, endKey]);
       

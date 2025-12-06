@@ -6,6 +6,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { addEmployee } from '../../../lib/firestore';
 import { toast } from 'sonner';
+import { useSettings } from '../../../context/SettingsContext';
 
 interface AddEmployeeDialogProps {
   open: boolean;
@@ -18,6 +19,7 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { currencySymbol } = useSettings();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -113,7 +115,7 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="salary">Monthly Salary (INR) *</Label>
+            <Label htmlFor="salary">Monthly Salary ({currencySymbol}) *</Label>
             <Input
               id="salary"
               type="number"
