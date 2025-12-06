@@ -6,7 +6,7 @@ import { Label } from '../../../components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { Plus, Trash2 } from 'lucide-react';
-import { addHoliday, getMonthHolidays, deleteHoliday, autoMarkSundaysAsHolidays } from '../../../lib/firestore';
+import { addHoliday, getMonthHolidays, deleteHoliday, markAllSundaysForYear } from '../../../lib/firestore';
 import { getSalaryMonthKey } from "../../../lib/salary";
 import { Holiday } from '../../../types';
 import { format } from 'date-fns';
@@ -21,7 +21,6 @@ export const HolidayManagement: React.FC = () => {
 
   useEffect(() => {
     loadHolidays();
-    autoMarkSundays();
   }, []);
 
   const loadHolidays = async () => {
@@ -34,15 +33,6 @@ export const HolidayManagement: React.FC = () => {
       toast.error('Failed to load holidays');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const autoMarkSundays = async () => {
-    try {
-      const salaryMonthKey = getSalaryMonthKey();
-      await autoMarkSundaysAsHolidays(salaryMonthKey);
-    } catch (error) {
-      console.error('Error auto-marking Sundays:', error);
     }
   };
 
@@ -117,10 +107,32 @@ export const HolidayManagement: React.FC = () => {
                 />
               </div>
             </div>
-            <Button type="submit" disabled={adding}>
-              <Plus className="mr-2 h-4 w-4" />
-              {adding ? 'Adding...' : 'Add Holiday'}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={adding} className="flex-1">
+                <Plus className="mr-2 h-4 w-4" />
+                {adding ? 'Adding...' : 'Add Holiday'}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                disabled={adding}
+                onClick={async () => {
+                  if (!confirm('Are you sure you want to mark all Sundays in the current year as holidays?')) return;
+                  try {
+                    setAdding(true);
+                    await markAllSundaysForYear(new Date().getFullYear());
+                    toast.success('All Sundays marked successfully');
+                    await loadHolidays();
+                  } catch (error) {
+                    toast.error('Failed to mark Sundays');
+                  } finally {
+                    setAdding(false);
+                  }
+                }}
+              >
+                Mark All Sundays
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

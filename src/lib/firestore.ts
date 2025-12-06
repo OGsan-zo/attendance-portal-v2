@@ -20,7 +20,7 @@ import {
 } from '../types';
 import { format, eachDayOfInterval } from 'date-fns';
 import { getSalaryMonthKey, calculateDeductions, calculateNetSalary, isLate, calculateEarlyLeaveHours, getSalaryMonthDates } from './salary';
-import { getAllSundaysInMonth } from './holidays';
+import { getAllSundaysInMonth, getAllSundaysInYear } from './holidays';
 
 // ==================== ADMIN OPERATIONS ====================
 
@@ -275,15 +275,18 @@ export const deleteHoliday = async (dateStr: string) => {
   await deleteDoc(doc(db, 'holidays', dateStr));
 };
 
-export const autoMarkSundaysAsHolidays = async (salaryMonthKey: string) => {
-  const sundays = getAllSundaysInMonth(salaryMonthKey);
+export const markAllSundaysForYear = async (year: number) => {
+  const sundays = getAllSundaysInYear(year);
   
-  for (const sunday of sundays) {
+  // Use batching or parallel requests for better performance
+  const promises = sundays.map(async (sunday) => {
     const existing = await getHoliday(sunday);
     if (!existing) {
       await addHoliday(sunday, 'Sunday');
     }
-  }
+  });
+
+  await Promise.all(promises);
 };
 
 // ==================== REPORTS ====================
