@@ -1,8 +1,8 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { UserRole } from '../../lib/auth';
-import { Skeleton } from '../ui/skeleton';
+import React from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { UserRole } from "../../lib/auth";
+import { Skeleton } from "../ui/skeleton";
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -25,6 +25,9 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({ children, role }) => {
   }
 
   if (!user) {
+    if (role === "admin") {
+      return <Navigate to="/admin-login" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 

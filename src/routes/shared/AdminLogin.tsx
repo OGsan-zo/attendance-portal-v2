@@ -12,24 +12,24 @@ import {
 import { toast } from "sonner";
 import { LogIn } from "lucide-react";
 
-export const Login: React.FC = () => {
+export const AdminLogin: React.FC = () => {
   const { user, role, signIn, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user && !loading) {
-      if (role === "employee") {
-        navigate("/dashboard", { replace: true });
-        toast.success("Welcome back, Employee!");
-      } else if (role === "admin") {
-        // Prevent Admin from logging in here
+      if (role === "admin") {
+        navigate("/admin/dashboard", { replace: true });
+        toast.success("Welcome back, Admin!");
+      } else if (role === "employee") {
+        // Prevent Employee from logging in here
         signOut();
-        toast.error("This is the Employee Portal. Please use the Admin Login.");
+        toast.error("This is the Admin Portal. Please use the Employee Login.");
       } else {
-        // No role found (neither admin nor employee)
+        // No role found
         signOut();
         toast.error(
-          "Access Denied: Your account is not registered as an employee."
+          "Access Denied: Your account is not authorized as an administrator."
         );
       }
     }
@@ -60,9 +60,9 @@ export const Login: React.FC = () => {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">Employee Portal</CardTitle>
+          <CardTitle className="text-3xl font-bold">Admin Portal</CardTitle>
           <CardDescription>
-            Sign in with your Google account to access your dashboard
+            Sign in with your Google account to access the admin dashboard
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -75,7 +75,7 @@ export const Login: React.FC = () => {
             Sign in with Google
           </Button>
           <p className="text-xs text-center text-muted-foreground">
-            Only authorized employees can access this portal
+            Only authorized administrators can access this portal
           </p>
         </CardContent>
       </Card>

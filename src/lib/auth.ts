@@ -60,6 +60,7 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
     
     // 1. Check Employees by email
     const employeesRef = collection(db, 'employees');
+    // Query both exact match and lowercase match if possible, but for now assume DB has lowercase or exact match
     const q = query(employeesRef, where('email', '==', user.email));
     const querySnapshot = await getDocs(q);
 
@@ -67,19 +68,34 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
       const oldDoc = querySnapshot.docs[0];
       const oldData = oldDoc.data();
       
-      console.log('Migrating employee to Auth UID:', user.uid);
+      console.log('Found existing employee record by email. Migrating to Auth UID:', user.uid);
 
-      // Create new doc with Auth UID
-      await setDoc(doc(db, 'employees', user.uid), {
-        ...oldData,
-        updatedAt: new Date(),
-        migratedAt: new Date()
-      });
-      
-      // Delete old doc
-      await deleteDoc(doc(db, 'employees', oldDoc.id));
-      
-      return 'employee';
+      try {
+        // Create new doc with Auth UID
+        await setDoc(doc(db, 'employees', user.uid), {
+          ...oldData,
+          uid: user.uid, // Ensure UID is in the data
+          updatedAt: new Date(),
+          migratedAt: new Date()
+        });
+        console.log('Created new employee record with Auth UID');
+
+        // Try to delete old doc
+        try {
+          await deleteDoc(doc(db, 'employees', oldDoc.id));
+          console.log('Deleted old employee record');
+        } catch (deleteError) {
+          console.warn('Failed to delete old employee record (likely permission issue). Ignoring.', deleteError);
+          // We continue anyway because the user now has a valid record with their Auth UID
+        }
+        
+        return 'employee';
+      } catch (migrationError) {
+        console.error('Migration failed:', migrationError);
+        // If we can't create the new doc, we can't log them in properly as an employee
+        // unless we change how the app works. For now, return null.
+        return null;
+      }
     }
 
     // 2. Check Admins by email (just in case)
@@ -91,19 +107,28 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
       const oldDoc = adminSnapshot.docs[0];
       const oldData = oldDoc.data();
       
-      console.log('Migrating admin to Auth UID:', user.uid);
+      console.log('Found existing admin record by email. Migrating to Auth UID:', user.uid);
 
-      // Create new doc with Auth UID
-      await setDoc(doc(db, 'admins', user.uid), {
-        ...oldData,
-        updatedAt: new Date(),
-        migratedAt: new Date()
-      });
-      
-      // Delete old doc
-      await deleteDoc(doc(db, 'admins', oldDoc.id));
-      
-      return 'admin';
+      try {
+        // Create new doc with Auth UID
+        await setDoc(doc(db, 'admins', user.uid), {
+          ...oldData,
+          uid: user.uid,
+          updatedAt: new Date(),
+          migratedAt: new Date()
+        });
+        
+        try {
+          await deleteDoc(doc(db, 'admins', oldDoc.id));
+        } catch (deleteError) {
+          console.warn('Failed to delete old admin record. Ignoring.', deleteError);
+        }
+        
+        return 'admin';
+      } catch (migrationError) {
+        console.error('Admin migration failed:', migrationError);
+        return null;
+      }
     }
 
     return null;

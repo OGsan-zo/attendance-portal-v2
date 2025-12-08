@@ -5,6 +5,7 @@ import { RequireAuth } from "./components/auth/RequireAuth";
 
 // Shared
 import { Login } from "./routes/shared/Login";
+import { AdminLogin } from "./routes/shared/AdminLogin";
 import { AccessDenied } from "./routes/shared/AccessDenied";
 
 // Employee
@@ -33,6 +34,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/access-denied" element={<AccessDenied />} />
 
             {/* Employee Routes */}

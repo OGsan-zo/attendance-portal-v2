@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../../context/AuthContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Label } from '../../../components/ui/label';
-import { addEmployee } from '../../../lib/firestore';
-import { toast } from 'sonner';
-import { useSettings } from '../../../context/SettingsContext';
+import React, { useState } from "react";
+import { useAuth } from "../../../context/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../../components/ui/dialog";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { addEmployee } from "../../../lib/firestore";
+import { toast } from "sonner";
+import { useSettings } from "../../../context/SettingsContext";
 
 interface AddEmployeeDialogProps {
   open: boolean;
@@ -23,10 +29,10 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    name: '',
-    empId: '',
-    monthlySalary: '',
+    email: "",
+    name: "",
+    empId: "",
+    monthlySalary: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,23 +41,28 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
     if (!user) return;
 
     // Validation
-    if (!formData.email || !formData.name || !formData.empId || !formData.monthlySalary) {
-      toast.error('All fields are required');
+    if (
+      !formData.email ||
+      !formData.name ||
+      !formData.empId ||
+      !formData.monthlySalary
+    ) {
+      toast.error("All fields are required");
       return;
     }
 
     const salary = parseFloat(formData.monthlySalary);
     if (isNaN(salary) || salary <= 0) {
-      toast.error('Please enter a valid monthly salary');
+      toast.error("Please enter a valid monthly salary");
       return;
     }
 
     try {
       setLoading(true);
-      
+
       // Generate a UID from email (in production, this would be the Firebase Auth UID)
       // For now, we'll use a simple hash of the email
-      const uid = formData.email.replace(/[^a-zA-Z0-9]/g, '_');
+      const uid = formData.email.replace(/[^a-zA-Z0-9]/g, "_");
 
       await addEmployee(
         uid,
@@ -62,11 +73,11 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
         user.uid
       );
 
-      toast.success('Employee added successfully');
+      toast.success("Employee added successfully");
       onSuccess();
     } catch (error: any) {
-      console.error('Error adding employee:', error);
-      toast.error(error.message || 'Failed to add employee');
+      console.error("Error adding employee:", error);
+      toast.error(error.message || "Failed to add employee");
     } finally {
       setLoading(false);
     }
@@ -86,7 +97,12 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
               id="email"
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  email: e.target.value.toLowerCase(),
+                })
+              }
               placeholder="employee@example.com"
               required
             />
@@ -97,7 +113,9 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="John Doe"
               required
             />
@@ -108,7 +126,9 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
             <Input
               id="empId"
               value={formData.empId}
-              onChange={(e) => setFormData({ ...formData, empId: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, empId: e.target.value })
+              }
               placeholder="EMP001"
               required
             />
@@ -120,7 +140,9 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
               id="salary"
               type="number"
               value={formData.monthlySalary}
-              onChange={(e) => setFormData({ ...formData, monthlySalary: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, monthlySalary: e.target.value })
+              }
               placeholder="50000"
               min="0"
               step="1"
@@ -129,11 +151,16 @@ export const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Employee'}
+              {loading ? "Adding..." : "Add Employee"}
             </Button>
           </DialogFooter>
         </form>
