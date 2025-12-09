@@ -16,9 +16,7 @@ import {
 } from "../../../components/ui/table";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { generateMonthlyReport } from "../../../lib/firestore";
-import { getSalaryMonthKey } from "../../../lib/salary";
 import { SalaryReport } from "../../../types";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "../../../context/AuthContext";
 import { Button } from "../../../components/ui/button";
@@ -31,16 +29,24 @@ export const SalaryReports: React.FC = () => {
   const { user } = useAuth();
   const { currencySymbol, salaryStartDay } = useSettings();
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(
-    getSalaryMonthKey(new Date(), salaryStartDay)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonthNum, setSelectedMonthNum] = useState(
+    new Date().getMonth() + 1
   );
   const [reports, setReports] = useState<SalaryReport[]>([]);
   const [paidEmployees, setPaidEmployees] = useState<Set<string>>(new Set());
   const [markingPay, setMarkingPay] = useState(false);
 
+  // Calculate selectedMonth from year and month
+  const selectedMonth = `${selectedYear}_${String(selectedMonthNum).padStart(
+    2,
+    "0"
+  )}`;
+
   useEffect(() => {
-    // Update selected month if start day changes
-    setSelectedMonth(getSalaryMonthKey(new Date(), salaryStartDay));
+    const currentDate = new Date();
+    setSelectedYear(currentDate.getFullYear());
+    setSelectedMonthNum(currentDate.getMonth() + 1);
   }, [salaryStartDay]);
 
   useEffect(() => {
@@ -63,18 +69,6 @@ export const SalaryReports: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // Generate month options (last 6 months)
-  const monthOptions = [];
-  for (let i = 0; i < 6; i++) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const key = getSalaryMonthKey(date, salaryStartDay);
-    monthOptions.push({
-      value: key,
-      label: format(date, "MMMM yyyy"),
-    });
-  }
 
   const handleExport = () => {
     const headers = [
@@ -163,6 +157,29 @@ export const SalaryReports: React.FC = () => {
     }
   };
 
+  // Generate year options (last 5 years + current year)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = [];
+  for (let i = 0; i <= 5; i++) {
+    yearOptions.push(currentYear - i);
+  }
+
+  // Month options
+  const monthOptions = [
+    { value: 1, label: "January" },
+    { value: 2, label: "February" },
+    { value: 3, label: "March" },
+    { value: 4, label: "April" },
+    { value: 5, label: "May" },
+    { value: 6, label: "June" },
+    { value: 7, label: "July" },
+    { value: 8, label: "August" },
+    { value: 9, label: "September" },
+    { value: 10, label: "October" },
+    { value: 11, label: "November" },
+    { value: 12, label: "December" },
+  ];
+
   const totalGrossSalary = reports.reduce((sum, r) => sum + r.monthlySalary, 0);
   const totalDeductions = reports.reduce(
     (sum, r) => sum + r.totalDeductions,
@@ -184,17 +201,30 @@ export const SalaryReports: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-48 border rounded-md p-2"
-          >
-            {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select
+              value={selectedYear.toString()}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="w-32 border rounded-md p-2"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={selectedMonthNum.toString()}
+              onChange={(e) => setSelectedMonthNum(Number(e.target.value))}
+              className="w-40 border rounded-md p-2"
+            >
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
+          </div>
           <Button onClick={handleExport} variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Export CSV
