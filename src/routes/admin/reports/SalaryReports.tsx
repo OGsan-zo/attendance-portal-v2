@@ -1,20 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Select } from '../../../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Skeleton } from '../../../components/ui/skeleton';
-import { generateMonthlyReport } from '../../../lib/firestore';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
+import { Select } from "../../../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table";
+import { Skeleton } from "../../../components/ui/skeleton";
+import { generateMonthlyReport } from "../../../lib/firestore";
 import { getSalaryMonthKey } from "../../../lib/salary";
-import { SalaryReport } from '../../../types';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
-import { useSettings } from '../../../context/SettingsContext';
+import { SalaryReport } from "../../../types";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { useAuth } from "../../../context/AuthContext";
+import { Button } from "../../../components/ui/button";
+import { Download, CheckCircle, DollarSign } from "lucide-react";
+import { addSalaryPayment, getSalaryPayments } from "../../../lib/firestore";
+import { Timestamp } from "firebase/firestore";
+import { useSettings } from "../../../context/SettingsContext";
 
 export const SalaryReports: React.FC = () => {
+  const { user } = useAuth();
   const { currencySymbol, salaryStartDay } = useSettings();
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(getSalaryMonthKey(new Date(), salaryStartDay));
+  const [selectedMonth, setSelectedMonth] = useState(
+    getSalaryMonthKey(new Date(), salaryStartDay)
+  );
   const [reports, setReports] = useState<SalaryReport[]>([]);
+  const [paidEmployees, setPaidEmployees] = useState<Set<string>>(new Set());
+  const [markingPay, setMarkingPay] = useState(false);
 
   useEffect(() => {
     // Update selected month if start day changes
@@ -28,11 +50,15 @@ export const SalaryReports: React.FC = () => {
   const loadReports = async () => {
     try {
       setLoading(true);
-      const data = await generateMonthlyReport(selectedMonth);
+      const [data, payments] = await Promise.all([
+        generateMonthlyReport(selectedMonth),
+        getSalaryPayments(selectedMonth),
+      ]);
       setReports(data);
+      setPaidEmployees(new Set(payments.map((p) => p.employeeUid)));
     } catch (error) {
-      console.error('Error loading reports:', error);
-      toast.error('Failed to load salary reports');
+      console.error("Error loading reports:", error);
+      toast.error("Failed to load salary reports");
     } finally {
       setLoading(false);
     }
@@ -46,12 +72,100 @@ export const SalaryReports: React.FC = () => {
     const key = getSalaryMonthKey(date, salaryStartDay);
     monthOptions.push({
       value: key,
-      label: format(date, 'MMMM yyyy'),
+      label: format(date, "MMMM yyyy"),
     });
   }
 
+  const handleExport = () => {
+    const headers = [
+      "Employee Name",
+      "Emp ID",
+      "Monthly Salary",
+      "Present",
+      "Leave",
+      "Off",
+      "Unmarked",
+      "Late",
+      "Off Deduction",
+      "Late Deduction",
+      "Early Leave Ded.",
+      "Total Deductions",
+      "Net Salary",
+      "Status",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...reports.map((r) => {
+        const isPaid = paidEmployees.has(r.employeeUid);
+        return [
+          `"${r.employeeName}"`,
+          r.empId,
+          r.monthlySalary,
+          r.presentDays,
+          r.leaveDays,
+          r.offDays,
+          r.unmarkedDays,
+          r.lateCount,
+          r.offDeduction,
+          r.lateDeduction,
+          r.earlyLeaveDeduction,
+          r.totalDeductions,
+          r.netSalary,
+          isPaid ? "Paid" : "Unpaid",
+        ].join(",");
+      }),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `salary_report_${selectedMonth}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleMarkAsPaid = async (report: SalaryReport) => {
+    if (!user) return;
+    if (
+      !confirm(
+        `Mark ${report.employeeName} as PAID? Amount: ${currencySymbol}${report.netSalary}`
+      )
+    )
+      return;
+
+    try {
+      setMarkingPay(true);
+      await addSalaryPayment({
+        employeeUid: report.employeeUid,
+        salaryMonthKey: selectedMonth,
+        amount: report.netSalary,
+        paidAt: Timestamp.now(),
+        paidBy: user.uid,
+        notes: "Salary Payment",
+      });
+      toast.success("Marked as Paid");
+
+      // Update local state
+      const newSet = new Set(paidEmployees);
+      newSet.add(report.employeeUid);
+      setPaidEmployees(newSet);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to mark as paid");
+    } finally {
+      setMarkingPay(false);
+    }
+  };
+
   const totalGrossSalary = reports.reduce((sum, r) => sum + r.monthlySalary, 0);
-  const totalDeductions = reports.reduce((sum, r) => sum + r.totalDeductions, 0);
+  const totalDeductions = reports.reduce(
+    (sum, r) => sum + r.totalDeductions,
+    0
+  );
   const totalNetSalary = reports.reduce((sum, r) => sum + r.netSalary, 0);
 
   if (loading) {
@@ -63,47 +177,68 @@ export const SalaryReports: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Salary Reports</h1>
-          <p className="text-muted-foreground">Monthly salary and deduction reports</p>
+          <p className="text-muted-foreground">
+            Monthly salary and deduction reports
+          </p>
         </div>
         <Select
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
           className="w-48"
         >
-          {monthOptions.map(opt => (
+          {monthOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
           ))}
         </Select>
+        <Button onClick={handleExport} variant="outline">
+          <Download className="mr-2 h-4 w-4" />
+          Export CSV
+        </Button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Gross Salary</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Gross Salary
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currencySymbol}{totalGrossSalary.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              {currencySymbol}
+              {totalGrossSalary.toLocaleString()}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Deductions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Deductions
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{currencySymbol}{totalDeductions.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {currencySymbol}
+              {totalDeductions.toLocaleString()}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Net Payable</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Net Payable
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{currencySymbol}{totalNetSalary.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {currencySymbol}
+              {totalNetSalary.toLocaleString()}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -131,40 +266,82 @@ export const SalaryReports: React.FC = () => {
                   <TableHead className="text-right">Early Leave Ded.</TableHead>
                   <TableHead className="text-right">Total Deductions</TableHead>
                   <TableHead className="text-right">Net Salary</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {reports.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={12}
+                      className="text-center text-muted-foreground"
+                    >
                       No salary data available for this month
                     </TableCell>
                   </TableRow>
                 ) : (
-                  reports.map(report => (
+                  reports.map((report) => (
                     <TableRow key={report.employeeUid}>
-                      <TableCell className="font-medium">{report.employeeName}</TableCell>
+                      <TableCell className="font-medium">
+                        {report.employeeName}
+                      </TableCell>
                       <TableCell>{report.empId}</TableCell>
-                      <TableCell className="text-right">{currencySymbol}{report.monthlySalary.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">{report.presentDays}</TableCell>
-                      <TableCell className="text-center">{report.leaveDays}</TableCell>
-                      <TableCell className="text-center">{report.offDays}</TableCell>
-                      <TableCell className="text-center text-red-500 font-medium">{report.unmarkedDays}</TableCell>
-                      <TableCell className="text-center">{report.lateCount}</TableCell>
-                      <TableCell className="text-right text-red-600">
-                        {currencySymbol}{report.offDeduction.toLocaleString()}
+                      <TableCell className="text-right">
+                        {currencySymbol}
+                        {report.monthlySalary.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {report.presentDays}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {report.leaveDays}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {report.offDays}
+                      </TableCell>
+                      <TableCell className="text-center text-red-500 font-medium">
+                        {report.unmarkedDays}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {report.lateCount}
                       </TableCell>
                       <TableCell className="text-right text-red-600">
-                        {currencySymbol}{report.lateDeduction.toLocaleString()}
+                        {currencySymbol}
+                        {report.offDeduction.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right text-red-600">
-                        {currencySymbol}{report.earlyLeaveDeduction.toLocaleString()}
+                        {currencySymbol}
+                        {report.lateDeduction.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right text-red-600">
+                        {currencySymbol}
+                        {report.earlyLeaveDeduction.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-red-600">
-                        {currencySymbol}{report.totalDeductions.toLocaleString()}
+                        {currencySymbol}
+                        {report.totalDeductions.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-green-600">
-                        {currencySymbol}{report.netSalary.toLocaleString()}
+                        {currencySymbol}
+                        {report.netSalary.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {paidEmployees.has(report.employeeUid) ? (
+                          <div className="flex items-center justify-center text-green-600 font-medium gap-1">
+                            <CheckCircle className="h-4 w-4" />
+                            Already Paid
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleMarkAsPaid(report)}
+                            disabled={markingPay}
+                            className="h-8"
+                          >
+                            <DollarSign className="mr-1 h-3 w-3" />
+                            Pay
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

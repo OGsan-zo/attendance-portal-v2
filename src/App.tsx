@@ -12,6 +12,7 @@ import { AccessDenied } from "./routes/shared/AccessDenied";
 import { EmployeeLayout } from "./routes/employee/Layout";
 import { EmployeeDashboard } from "./routes/employee/Dashboard";
 import { EmployeeCalendar } from "./routes/employee/Calendar";
+import { EmployeeSalary } from "./routes/employee/Salary";
 
 // Admin
 import { AdminLayout } from "./routes/admin/Layout";
@@ -49,6 +50,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<EmployeeDashboard />} />
               <Route path="calendar" element={<EmployeeCalendar />} />
+              <Route path="salary" element={<EmployeeSalary />} />
             </Route>
 
             {/* Admin Routes */}

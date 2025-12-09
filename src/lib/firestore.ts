@@ -8,52 +8,59 @@ import {
   deleteDoc,
   serverTimestamp,
   Timestamp,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import { 
-  Admin, 
-  Employee, 
-  AttendanceRecord, 
-  Holiday, 
+  deleteField,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
+import { db } from "./firebase";
+import {
+  Admin,
+  Employee,
+  AttendanceRecord,
+  Holiday,
   SalaryReport,
   AttendanceStatus,
-  PortalSettings
-} from '../types';
-import { format, eachDayOfInterval } from 'date-fns';
-import { 
-  getSalaryMonthKey, 
-  calculateDeductions, 
-  calculateNetSalary, 
-  isLate, 
-  calculateEarlyLeaveHours, 
+  PortalSettings,
+  SalaryPayment,
+} from "../types";
+import { format, eachDayOfInterval } from "date-fns";
+import {
+  getSalaryMonthKey,
+  calculateDeductions,
+  calculateNetSalary,
+  isLate,
+  calculateEarlyLeaveHours,
   getSalaryMonthDates,
-  calculateOvertimeHours 
-} from './salary';
-import { getAllSundaysInYear } from './holidays';
+  calculateOvertimeHours,
+} from "./salary";
+import { getAllSundaysInYear } from "./holidays";
 
 // ==================== ADMIN OPERATIONS ====================
 
 export const addAdmin = async (uid: string, email: string, name: string) => {
-  const adminData: Omit<Admin, 'uid'> = {
+  const adminData: Omit<Admin, "uid"> = {
     name,
     email,
-    role: 'admin',
+    role: "admin",
     createdAt: serverTimestamp() as Timestamp,
   };
 
-  await setDoc(doc(db, 'admins', uid), adminData);
+  await setDoc(doc(db, "admins", uid), adminData);
 };
 
 export const getAdmin = async (uid: string): Promise<Admin | null> => {
-  const adminDoc = await getDoc(doc(db, 'admins', uid));
+  const adminDoc = await getDoc(doc(db, "admins", uid));
   if (!adminDoc.exists()) return null;
-  
+
   return { uid, ...adminDoc.data() } as Admin;
 };
 
 export const getAllAdmins = async (): Promise<Admin[]> => {
-  const adminsSnapshot = await getDocs(collection(db, 'admins'));
-  return adminsSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as Admin));
+  const adminsSnapshot = await getDocs(collection(db, "admins"));
+  return adminsSnapshot.docs.map(
+    (doc) => ({ uid: doc.id, ...doc.data() } as Admin)
+  );
 };
 
 // ==================== EMPLOYEE OPERATIONS ====================
@@ -66,7 +73,7 @@ export const addEmployee = async (
   monthlySalary: number,
   createdBy: string
 ) => {
-  const employeeData: Omit<Employee, 'uid'> = {
+  const employeeData: Omit<Employee, "uid"> = {
     name,
     email,
     empId,
@@ -76,49 +83,57 @@ export const addEmployee = async (
     isActive: true,
   };
 
-  await setDoc(doc(db, 'employees', uid), employeeData);
+  await setDoc(doc(db, "employees", uid), employeeData);
 };
 
 export const toggleEmployeeStatus = async (uid: string, isActive: boolean) => {
-  await updateDoc(doc(db, 'employees', uid), { isActive });
+  await updateDoc(doc(db, "employees", uid), { isActive });
 };
 
 export const updateEmployee = async (
   uid: string,
-  updates: Partial<Omit<Employee, 'uid' | 'createdAt' | 'createdBy'>>
+  updates: Partial<Omit<Employee, "uid" | "createdAt" | "createdBy">>
 ) => {
-  await updateDoc(doc(db, 'employees', uid), updates);
+  await updateDoc(doc(db, "employees", uid), updates);
 };
 
 export const getEmployee = async (uid: string): Promise<Employee | null> => {
-  const employeeDoc = await getDoc(doc(db, 'employees', uid));
+  const employeeDoc = await getDoc(doc(db, "employees", uid));
   if (!employeeDoc.exists()) return null;
-  
+
   return { uid, ...employeeDoc.data() } as Employee;
 };
 
 export const getAllEmployees = async (): Promise<Employee[]> => {
-  const employeesSnapshot = await getDocs(collection(db, 'employees'));
-  return employeesSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as Employee));
+  const employeesSnapshot = await getDocs(collection(db, "employees"));
+  return employeesSnapshot.docs.map(
+    (doc) => ({ uid: doc.id, ...doc.data() } as Employee)
+  );
 };
 
 export const deleteEmployee = async (uid: string) => {
-  await deleteDoc(doc(db, 'employees', uid));
+  await deleteDoc(doc(db, "employees", uid));
 };
 
 // ==================== SETTINGS OPERATIONS ====================
 
 export const getPortalSettings = async (): Promise<PortalSettings | null> => {
-  const settingsDoc = await getDoc(doc(db, 'settings', 'portal'));
+  const settingsDoc = await getDoc(doc(db, "settings", "portal"));
   if (!settingsDoc.exists()) return null;
   return settingsDoc.data() as PortalSettings;
 };
 
-export const updatePortalSettings = async (settings: Partial<PortalSettings>) => {
-  await setDoc(doc(db, 'settings', 'portal'), {
-    ...settings,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+export const updatePortalSettings = async (
+  settings: Partial<PortalSettings>
+) => {
+  await setDoc(
+    doc(db, "settings", "portal"),
+    {
+      ...settings,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 };
 
 // ==================== ATTENDANCE OPERATIONS ====================
@@ -137,22 +152,28 @@ export const markAttendance = async (
   const lateBuffer = settings?.lateMarkAfterMinutes || 15;
 
   const now = new Date();
-  const dateStr = format(now, 'yyyy-MM-dd');
+  const dateStr = format(now, "yyyy-MM-dd");
   const salaryMonthKey = getSalaryMonthKey(now, startDay);
-  
+
   const attendanceCollectionPath = `attendance_${salaryMonthKey}`;
   const dateDocPath = `${attendanceCollectionPath}/${dateStr}`;
   const recordPath = `${dateDocPath}/records/${employeeUid}`;
 
   // Check if already marked
   const existingRecord = await getDoc(doc(db, recordPath));
-  
+
   if (isEarlyOff && existingRecord.exists()) {
     // Mark early off - update existing record
     const outTime = Timestamp.now();
-    const earlyLeaveHours = calculateEarlyLeaveHours(outTime.toDate(), officeEndTime);
-    const overtimeHours = calculateOvertimeHours(outTime.toDate(), officeEndTime);
-    
+    const earlyLeaveHours = calculateEarlyLeaveHours(
+      outTime.toDate(),
+      officeEndTime
+    );
+    const overtimeHours = calculateOvertimeHours(
+      outTime.toDate(),
+      officeEndTime
+    );
+
     const updates: any = {
       outTime,
       earlyLeaveHours,
@@ -161,7 +182,7 @@ export const markAttendance = async (
 
     if (overtimeHours > 0) {
       updates.overtimeHours = overtimeHours;
-      updates.overtimeStatus = 'approved';
+      updates.overtimeStatus = "approved";
       updates.overtimeReason = null;
     } else {
       updates.overtimeHours = 0;
@@ -174,13 +195,15 @@ export const markAttendance = async (
   }
 
   if (existingRecord.exists() && !isEarlyOff) {
-    throw new Error('Attendance already marked for today');
+    throw new Error("Attendance already marked for today");
   }
 
   // Determine if late
   const inTime = Timestamp.now();
-  const isLateMark = status === 'present' && isLate(inTime.toDate(), officeStartTime, lateBuffer);
-  const finalStatus: AttendanceStatus = isLateMark ? 'late' : status;
+  const isLateMark =
+    status === "present" &&
+    isLate(inTime.toDate(), officeStartTime, lateBuffer);
+  const finalStatus: AttendanceStatus = isLateMark ? "late" : status;
 
   const recordData: Record<string, any> = {
     status: finalStatus,
@@ -188,16 +211,20 @@ export const markAttendance = async (
     createdAt: serverTimestamp() as Timestamp,
   };
 
-  if (status === 'present' || finalStatus === 'late') {
+  if (status === "present" || finalStatus === "late") {
     recordData.inTime = inTime;
   }
 
-  if (status === 'leave' && leaveReason) {
+  if (status === "leave" && leaveReason) {
     recordData.leaveReason = leaveReason;
   }
 
   if (isLateMark) {
-    recordData.lateMinutes = calculateLateMinutes(inTime.toDate(), officeStartTime, lateBuffer);
+    recordData.lateMinutes = calculateLateMinutes(
+      inTime.toDate(),
+      officeStartTime,
+      lateBuffer
+    );
   }
 
   // Ensure parent date document exists
@@ -210,12 +237,16 @@ export const markAttendance = async (
   });
 };
 
-const calculateLateMinutes = (time: Date, startTime: string = "10:00", bufferMinutes: number = 15): number => {
+const calculateLateMinutes = (
+  time: Date,
+  startTime: string = "10:00",
+  bufferMinutes: number = 15
+): number => {
   const hours = time.getHours();
   const minutes = time.getMinutes();
-  
-  const [startHour, startMinute] = startTime.split(':').map(Number);
-  
+
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+
   const thresholdMinutes = startHour * 60 + startMinute + bufferMinutes;
   const currentMinutes = hours * 60 + minutes;
   return Math.max(0, currentMinutes - thresholdMinutes);
@@ -239,7 +270,7 @@ export const getAttendanceForDate = async (
   }
 
   const recordsSnapshot = await getDocs(collection(db, recordsPath));
-  return recordsSnapshot.docs.map(doc => doc.data() as AttendanceRecord);
+  return recordsSnapshot.docs.map((doc) => doc.data() as AttendanceRecord);
 };
 
 export const getMonthlyAttendance = async (
@@ -251,12 +282,12 @@ export const getMonthlyAttendance = async (
 
   const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
   const days = eachDayOfInterval({ start, end });
-  
+
   const promises = days.map(async (day) => {
-    const dateStr = format(day, 'yyyy-MM-dd');
+    const dateStr = format(day, "yyyy-MM-dd");
     const recordPath = `attendance_${salaryMonthKey}/${dateStr}/records/${employeeUid}`;
     const recordDoc = await getDoc(doc(db, recordPath));
-    
+
     if (recordDoc.exists()) {
       return recordDoc.data() as AttendanceRecord;
     }
@@ -264,7 +295,9 @@ export const getMonthlyAttendance = async (
   });
 
   const results = await Promise.all(promises);
-  return results.filter((record): record is AttendanceRecord => record !== null);
+  return results.filter(
+    (record): record is AttendanceRecord => record !== null
+  );
 };
 
 export const updateAttendance = async (
@@ -285,7 +318,10 @@ export const updateAttendance = async (
   });
 };
 
-export const deleteAttendance = async (dateStr: string, employeeUid: string) => {
+export const deleteAttendance = async (
+  dateStr: string,
+  employeeUid: string
+) => {
   const settings = await getPortalSettings();
   const startDay = settings?.salaryStartDay || 6;
 
@@ -304,7 +340,7 @@ export const adminUpsertAttendance = async (
     inTime?: Date | null;
     outTime?: Date | null;
     leaveReason?: string;
-    mode: 'attendance' | 'leave' | 'off';
+    mode: "attendance" | "leave" | "off";
   }
 ) => {
   const settings = await getPortalSettings();
@@ -315,31 +351,39 @@ export const adminUpsertAttendance = async (
 
   const date = new Date(dateStr);
   const salaryMonthKey = getSalaryMonthKey(date, startDay);
-  
+
   const attendanceCollectionPath = `attendance_${salaryMonthKey}`;
   const dateDocPath = `${attendanceCollectionPath}/${dateStr}`;
   const recordPath = `${dateDocPath}/records/${employeeUid}`;
 
+  // Check if record exists
+  const existingRecordDoc = await getDoc(doc(db, recordPath));
+  const exists = existingRecordDoc.exists();
+
   // Determine status based on mode and inputs
-  let finalStatus: AttendanceStatus = 'present'; // Default
+  let finalStatus: AttendanceStatus = "present"; // Default
   let lateMinutes = 0;
   let earlyLeaveHours = 0;
 
-  if (data.mode === 'leave') {
-    finalStatus = 'leave';
-  } else if (data.mode === 'off') {
-    finalStatus = 'off';
+  if (data.mode === "leave") {
+    finalStatus = "leave";
+  } else if (data.mode === "off") {
+    finalStatus = "off";
   } else {
     // Attendance mode
     if (data.inTime) {
       if (isLate(data.inTime, officeStartTime, lateBuffer)) {
-        finalStatus = 'late';
-        lateMinutes = calculateLateMinutes(data.inTime, officeStartTime, lateBuffer);
+        finalStatus = "late";
+        lateMinutes = calculateLateMinutes(
+          data.inTime,
+          officeStartTime,
+          lateBuffer
+        );
       } else {
-        finalStatus = 'present';
+        finalStatus = "present";
       }
     } else {
-      finalStatus = 'present';
+      finalStatus = "present";
     }
   }
 
@@ -349,51 +393,75 @@ export const adminUpsertAttendance = async (
 
   const recordData: any = {
     status: finalStatus,
-    markedBy: 'admin',
+    markedBy: "admin",
     updatedAt: serverTimestamp(),
   };
 
-  if (data.mode === 'attendance') {
+  if (!exists) {
+    recordData.createdAt = serverTimestamp();
+  }
+
+  if (data.mode === "attendance") {
     if (data.inTime) recordData.inTime = Timestamp.fromDate(data.inTime);
     if (data.outTime) recordData.outTime = Timestamp.fromDate(data.outTime);
-    recordData.leaveReason = null; 
+
+    // Cleanup leave fields
+    recordData.leaveReason = deleteField();
   } else {
     if (data.leaveReason) recordData.leaveReason = data.leaveReason;
-    recordData.inTime = null;
-    recordData.outTime = null;
-    recordData.lateMinutes = 0;
-    recordData.earlyLeaveHours = 0;
+
+    // Cleanup attendance fields
+    recordData.inTime = deleteField();
+    recordData.outTime = deleteField();
+    recordData.lateMinutes = deleteField();
+    recordData.earlyLeaveHours = deleteField();
+    recordData.overtimeHours = deleteField();
+    recordData.overtimeStatus = deleteField();
+    recordData.overtimeReason = deleteField();
   }
-  
-  if (finalStatus === 'late') {
+
+  if (finalStatus === "late") {
     recordData.lateMinutes = lateMinutes;
+  } else if (data.mode === "attendance") {
+    // If present (not late), remove lateMinutes
+    recordData.lateMinutes = deleteField();
   }
-  
-  if (data.outTime && data.mode === 'attendance') {
+
+  if (data.outTime && data.mode === "attendance") {
     recordData.earlyLeaveHours = earlyLeaveHours;
-    
+
     // Calculate Overtime
     const overtimeHours = calculateOvertimeHours(data.outTime, officeEndTime);
     if (overtimeHours > 0) {
       recordData.overtimeHours = overtimeHours;
-      recordData.overtimeStatus = 'approved'; // Default approved
+      recordData.overtimeStatus = "approved"; // Default approved
       recordData.overtimeReason = null;
     } else {
       recordData.overtimeHours = 0;
-      recordData.overtimeStatus = null;
-      recordData.overtimeReason = null;
+      recordData.overtimeStatus = deleteField();
+      recordData.overtimeReason = deleteField();
     }
+  } else if (data.mode === "attendance") {
+    // If no outTime, remove related fields
+    recordData.earlyLeaveHours = deleteField();
+    recordData.overtimeHours = deleteField();
+    recordData.overtimeStatus = deleteField();
+    recordData.overtimeReason = deleteField();
   }
 
   // Ensure parent date document exists
   await setDoc(doc(db, dateDocPath), { date: dateStr }, { merge: true });
 
   // Use setDoc with merge to create or update
-  await setDoc(doc(db, recordPath), {
-    ...recordData,
-    employeeUid,
-    date: dateStr,
-  }, { merge: true });
+  await setDoc(
+    doc(db, recordPath),
+    {
+      ...recordData,
+      employeeUid,
+      date: dateStr,
+    },
+    { merge: true }
+  );
 };
 
 // ==================== HOLIDAY OPERATIONS ====================
@@ -407,46 +475,48 @@ export const addHoliday = async (dateStr: string, reason?: string) => {
     holidayData.reason = reason;
   }
 
-  await setDoc(doc(db, 'holidays', dateStr), {
+  await setDoc(doc(db, "holidays", dateStr), {
     ...holidayData,
     date: dateStr,
   });
 };
 
 export const getHoliday = async (dateStr: string): Promise<Holiday | null> => {
-  const holidayDoc = await getDoc(doc(db, 'holidays', dateStr));
+  const holidayDoc = await getDoc(doc(db, "holidays", dateStr));
   if (!holidayDoc.exists()) return null;
-  
+
   return holidayDoc.data() as Holiday;
 };
 
-export const getMonthHolidays = async (salaryMonthKey: string): Promise<Holiday[]> => {
+export const getMonthHolidays = async (
+  salaryMonthKey: string
+): Promise<Holiday[]> => {
   const settings = await getPortalSettings();
   const startDay = settings?.salaryStartDay || 6;
 
   const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
-  const startStr = format(start, 'yyyy-MM-dd');
-  const endStr = format(end, 'yyyy-MM-dd');
+  const startStr = format(start, "yyyy-MM-dd");
+  const endStr = format(end, "yyyy-MM-dd");
 
-  const holidaysSnapshot = await getDocs(collection(db, 'holidays'));
+  const holidaysSnapshot = await getDocs(collection(db, "holidays"));
   const holidays = holidaysSnapshot.docs
-    .map(doc => doc.data() as Holiday)
-    .filter(h => h.date >= startStr && h.date <= endStr);
+    .map((doc) => doc.data() as Holiday)
+    .filter((h) => h.date >= startStr && h.date <= endStr);
 
   return holidays;
 };
 
 export const deleteHoliday = async (dateStr: string) => {
-  await deleteDoc(doc(db, 'holidays', dateStr));
+  await deleteDoc(doc(db, "holidays", dateStr));
 };
 
 export const markAllSundaysForYear = async (year: number) => {
   const sundays = getAllSundaysInYear(year);
-  
+
   const promises = sundays.map(async (sunday) => {
     const existing = await getHoliday(sunday);
     if (!existing) {
-      await addHoliday(sunday, 'Sunday');
+      await addHoliday(sunday, "Sunday");
     }
   });
 
@@ -466,15 +536,15 @@ export const calculateMonthlySalary = async (
   const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
   const allDays = eachDayOfInterval({ start, end });
   const today = new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
+  const todayStr = format(today, "yyyy-MM-dd");
 
   const [records, holidays] = await Promise.all([
     getMonthlyAttendance(employeeUid, salaryMonthKey),
-    getMonthHolidays(salaryMonthKey)
+    getMonthHolidays(salaryMonthKey),
   ]);
 
-  const recordsMap = new Map(records.map(r => [r.date, r]));
-  const holidaysSet = new Set(holidays.map(h => h.date));
+  const recordsMap = new Map(records.map((r) => [r.date, r]));
+  const holidaysSet = new Set(holidays.map((h) => h.date));
 
   let presentDays = 0;
   let leaveDays = 0;
@@ -483,9 +553,9 @@ export const calculateMonthlySalary = async (
   let lateCount = 0;
   let earlyLeaveHours = 0;
 
-  allDays.forEach(day => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    
+  allDays.forEach((day) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+
     // Skip future days
     if (dateStr > todayStr) return;
 
@@ -494,16 +564,16 @@ export const calculateMonthlySalary = async (
 
     if (record) {
       switch (record.status) {
-        case 'present':
+        case "present":
           presentDays++;
           break;
-        case 'leave':
+        case "leave":
           leaveDays++;
           break;
-        case 'off':
+        case "off":
           offDays++;
           break;
-        case 'late':
+        case "late":
           lateCount++;
           presentDays++; // Late is still present
           break;
@@ -531,7 +601,10 @@ export const calculateMonthlySalary = async (
     earlyLeaveHours
   );
 
-  const netSalary = calculateNetSalary(employee.monthlySalary, deductions.totalDeductions);
+  const netSalary = calculateNetSalary(
+    employee.monthlySalary,
+    deductions.totalDeductions
+  );
 
   return {
     employeeUid,
@@ -557,46 +630,52 @@ export const generateMonthlyReport = async (
 ): Promise<SalaryReport[]> => {
   const settings = await getPortalSettings();
   const startDay = settings?.salaryStartDay || 6;
-  
+
   // 1. Get all employees
   const employees = await getAllEmployees();
-  
+
   // 2. Get date range
   const { start, end } = getSalaryMonthDates(salaryMonthKey, startDay);
   const days = eachDayOfInterval({ start, end });
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   // 3. Fetch Holidays for the month
   const holidays = await getMonthHolidays(salaryMonthKey);
-  const holidaysSet = new Set(holidays.map(h => h.date));
+  const holidaysSet = new Set(holidays.map((h) => h.date));
 
   // 4. Fetch Attendance for ALL days in parallel
-  const attendancePromises = days.map(day => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    return getAttendanceForDate(dateStr).then(records => ({ dateStr, records }));
+  const attendancePromises = days.map((day) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    return getAttendanceForDate(dateStr).then((records) => ({
+      dateStr,
+      records,
+    }));
   });
 
   const dailyRecords = await Promise.all(attendancePromises);
 
   // 5. Aggregate data per employee
-  const employeeStats = new Map<string, {
-    presentDays: number;
-    leaveDays: number;
-    offDays: number;
-    lateCount: number;
-    earlyLeaveHours: number;
-    unmarkedDays: number;
-  }>();
+  const employeeStats = new Map<
+    string,
+    {
+      presentDays: number;
+      leaveDays: number;
+      offDays: number;
+      lateCount: number;
+      earlyLeaveHours: number;
+      unmarkedDays: number;
+    }
+  >();
 
   // Initialize stats
-  employees.forEach(emp => {
+  employees.forEach((emp) => {
     employeeStats.set(emp.uid, {
       presentDays: 0,
       leaveDays: 0,
       offDays: 0,
       lateCount: 0,
       earlyLeaveHours: 0,
-      unmarkedDays: 0
+      unmarkedDays: 0,
     });
   });
 
@@ -605,23 +684,23 @@ export const generateMonthlyReport = async (
     if (dateStr > todayStr) return; // Skip future
 
     const isHoliday = holidaysSet.has(dateStr);
-    
+
     // Create a set of employees who have a record for this day
     const recordedEmployeeIds = new Set<string>();
 
-    records.forEach(record => {
+    records.forEach((record) => {
       recordedEmployeeIds.add(record.employeeUid);
       const stats = employeeStats.get(record.employeeUid);
       if (!stats) return;
 
-      if (record.status === 'present') {
+      if (record.status === "present") {
         stats.presentDays++;
-      } else if (record.status === 'late') {
+      } else if (record.status === "late") {
         stats.presentDays++;
         stats.lateCount++;
-      } else if (record.status === 'leave') {
+      } else if (record.status === "leave") {
         stats.leaveDays++;
-      } else if (record.status === 'off') {
+      } else if (record.status === "off") {
         stats.offDays++;
       }
 
@@ -631,7 +710,7 @@ export const generateMonthlyReport = async (
     });
 
     // Check for absent/unmarked employees
-    employees.forEach(emp => {
+    employees.forEach((emp) => {
       if (!recordedEmployeeIds.has(emp.uid)) {
         // No record
         if (!isHoliday) {
@@ -643,9 +722,9 @@ export const generateMonthlyReport = async (
   });
 
   // 6. Calculate Final Report
-  const reports: SalaryReport[] = employees.map(emp => {
+  const reports: SalaryReport[] = employees.map((emp) => {
     const stats = employeeStats.get(emp.uid)!;
-    
+
     // Treat unmarked days as OFF days for deduction
     const totalOffDaysForDeduction = stats.offDays + stats.unmarkedDays;
 
@@ -656,7 +735,10 @@ export const generateMonthlyReport = async (
       stats.earlyLeaveHours
     );
 
-    const netSalary = calculateNetSalary(emp.monthlySalary, deductions.totalDeductions);
+    const netSalary = calculateNetSalary(
+      emp.monthlySalary,
+      deductions.totalDeductions
+    );
 
     return {
       employeeUid: emp.uid,
@@ -678,4 +760,30 @@ export const generateMonthlyReport = async (
   });
 
   return reports;
+};
+
+// ==================== SALARY PAYMENT OPERATIONS ====================
+
+export const addSalaryPayment = async (payment: Omit<SalaryPayment, 'id'>) => {
+  const collectionRef = collection(db, 'salary_payments');
+  await setDoc(doc(collectionRef), payment);
+};
+
+export const getSalaryPayments = async (salaryMonthKey: string): Promise<SalaryPayment[]> => {
+  const q = query(
+    collection(db, 'salary_payments'), 
+    where('salaryMonthKey', '==', salaryMonthKey)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SalaryPayment));
+};
+
+export const getEmployeePayments = async (employeeUid: string): Promise<SalaryPayment[]> => {
+  const q = query(
+    collection(db, 'salary_payments'), 
+    where('employeeUid', '==', employeeUid),
+    orderBy('paidAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SalaryPayment));
 };

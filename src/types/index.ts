@@ -79,3 +79,13 @@ export interface PortalSettings {
   lateMarkAfterMinutes?: number;
   updatedAt?: Timestamp;
 }
+
+export interface SalaryPayment {
+  id?: string;
+  employeeUid: string;
+  salaryMonthKey: string; // e.g. "2024-12"
+  amount: number;
+  paidAt: Timestamp;
+  paidBy: string; // admin uid
+  notes?: string;
+}

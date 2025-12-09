@@ -2,7 +2,7 @@ import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui/button";
-import { LogOut, LayoutDashboard, Calendar } from "lucide-react";
+import { LogOut, LayoutDashboard, Calendar, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 
 export const EmployeeLayout: React.FC = () => {
@@ -75,6 +75,19 @@ export const EmployeeLayout: React.FC = () => {
               >
                 <Calendar className="mr-2 h-5 w-5" />
                 My Calendar
+              </Button>
+            </Link>
+            <Link to="/salary">
+              <Button
+                variant="ghost"
+                className={`rounded-none border-b-2 px-6 py-6 h-auto text-base font-medium transition-colors ${
+                  isActive("/salary")
+                    ? "border-primary text-primary bg-primary/5"
+                    : "border-transparent text-muted-foreground hover:text-primary hover:bg-gray-50"
+                }`}
+              >
+                <DollarSign className="mr-2 h-5 w-5" />
+                Salary
               </Button>
             </Link>
           </div>
