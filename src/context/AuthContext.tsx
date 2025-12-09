@@ -38,48 +38,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("[AuthContext] Setting up auth state listener");
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+      console.log(
+        "[AuthContext] Auth state changed, user:",
+        firebaseUser?.email || "null"
+      );
+      try {
+        if (firebaseUser) {
+          console.log("[AuthContext] User logged in, checking role...");
+          // Ensure we wait for role check to complete BEFORE setting user state
+          const userRole = await checkUserRole(firebaseUser);
+          console.log("[AuthContext] Role determined:", userRole);
 
-      if (firebaseUser) {
-        const userRole = await checkUserRole(firebaseUser);
-        setRole(userRole);
+          let userProfile: Admin | Employee | null = null;
 
-        if (userRole === "admin") {
-          const adminProfile = await getAdmin(firebaseUser.uid);
-          setProfile(adminProfile);
-        } else if (userRole === "employee") {
-          const employeeProfile = await getEmployee(firebaseUser.uid);
+          if (userRole === "admin") {
+            console.log("[AuthContext] Fetching admin profile...");
+            userProfile = await getAdmin(firebaseUser.uid);
+          } else if (userRole === "employee") {
+            console.log("[AuthContext] Fetching employee profile...");
+            const employeeProfile = await getEmployee(firebaseUser.uid);
 
-          if (employeeProfile) {
-            // Check if account is explicitly deactivated
-            // If isActive is undefined, we treat it as active (legacy accounts)
-            if (employeeProfile.isActive === false) {
-              await signOutUser();
-              setUser(null);
-              setRole(null);
-              setProfile(null);
-              alert(
-                "Your account has been deactivated. Please contact the administrator."
-              );
-              setLoading(false);
-              return;
+            if (employeeProfile) {
+              // Check if account is explicitly deactivated
+              // If isActive is undefined, we treat it as active (legacy accounts)
+              if (employeeProfile.isActive === false) {
+                console.log(
+                  "[AuthContext] Account is deactivated, signing out"
+                );
+                await signOutUser();
+                setUser(null);
+                setRole(null);
+                setProfile(null);
+                alert(
+                  "Your account has been deactivated. Please contact the administrator."
+                );
+                setLoading(false);
+                return;
+              }
+              userProfile = employeeProfile;
             }
-            setProfile(employeeProfile);
-          } else {
-            // Employee profile not found but role is employee?
-            // This shouldn't happen normally, but safe to sign out or handle gracefully
-            setProfile(null);
           }
+
+          // Batch all state updates together to prevent race conditions
+          console.log(
+            "[AuthContext] Setting user state - User:",
+            firebaseUser.email,
+            "Role:",
+            userRole
+          );
+          setUser(firebaseUser);
+          setRole(userRole);
+          setProfile(userProfile);
         } else {
+          // User signed out - batch updates
+          console.log("[AuthContext] User signed out, clearing state");
+          setUser(null);
+          setRole(null);
           setProfile(null);
         }
-      } else {
+      } catch (error) {
+        console.error("[AuthContext] Error in auth state change:", error);
+        // On error, reset everything
+        setUser(null);
         setRole(null);
         setProfile(null);
+      } finally {
+        // Always set loading to false after processing completes
+        console.log("[AuthContext] Setting loading to false");
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return unsubscribe;

@@ -40,20 +40,29 @@ export const signOutUser = async () => {
 export type UserRole = 'admin' | 'employee' | null;
 
 export const checkUserRole = async (user: User): Promise<UserRole> => {
-  if (!user || !user.email) return null;
+  if (!user || !user.email) {
+    console.log('[checkUserRole] No user or email provided');
+    return null;
+  }
+
+  console.log('[checkUserRole] Checking role for user:', user.email);
 
   try {
     // Check if user is admin
     const adminDoc = await getDoc(doc(db, 'admins', user.uid));
     if (adminDoc.exists()) {
+      console.log('[checkUserRole] User is ADMIN (found by UID)');
       return 'admin';
     }
 
     // Check if user is employee
     const employeeDoc = await getDoc(doc(db, 'employees', user.uid));
     if (employeeDoc.exists()) {
+      console.log('[checkUserRole] User is EMPLOYEE (found by UID)');
       return 'employee';
     }
+
+    console.log('[checkUserRole] No direct UID match, checking by email...');
 
     // Migration Logic: Check if user exists with email-based UID
     // This handles cases where Admin added user by email before they signed in
@@ -68,7 +77,7 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
       const oldDoc = querySnapshot.docs[0];
       const oldData = oldDoc.data();
       
-      console.log('Found existing employee record by email. Migrating to Auth UID:', user.uid);
+      console.log('[checkUserRole] Found existing employee record by email. Migrating to Auth UID:', user.uid);
 
       try {
         // Create new doc with Auth UID
@@ -78,20 +87,21 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
           updatedAt: new Date(),
           migratedAt: new Date()
         });
-        console.log('Created new employee record with Auth UID');
+        console.log('[checkUserRole] Created new employee record with Auth UID');
 
         // Try to delete old doc
         try {
           await deleteDoc(doc(db, 'employees', oldDoc.id));
-          console.log('Deleted old employee record');
+          console.log('[checkUserRole] Deleted old employee record');
         } catch (deleteError) {
-          console.warn('Failed to delete old employee record (likely permission issue). Ignoring.', deleteError);
+          console.warn('[checkUserRole] Failed to delete old employee record (likely permission issue). Ignoring.', deleteError);
           // We continue anyway because the user now has a valid record with their Auth UID
         }
         
+        console.log('[checkUserRole] Migration complete - User is EMPLOYEE');
         return 'employee';
       } catch (migrationError) {
-        console.error('Migration failed:', migrationError);
+        console.error('[checkUserRole] Migration failed:', migrationError);
         // If we can't create the new doc, we can't log them in properly as an employee
         // unless we change how the app works. For now, return null.
         return null;
@@ -107,7 +117,7 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
       const oldDoc = adminSnapshot.docs[0];
       const oldData = oldDoc.data();
       
-      console.log('Found existing admin record by email. Migrating to Auth UID:', user.uid);
+      console.log('[checkUserRole] Found existing admin record by email. Migrating to Auth UID:', user.uid);
 
       try {
         // Create new doc with Auth UID
@@ -121,19 +131,21 @@ export const checkUserRole = async (user: User): Promise<UserRole> => {
         try {
           await deleteDoc(doc(db, 'admins', oldDoc.id));
         } catch (deleteError) {
-          console.warn('Failed to delete old admin record. Ignoring.', deleteError);
+          console.warn('[checkUserRole] Failed to delete old admin record. Ignoring.', deleteError);
         }
         
+        console.log('[checkUserRole] Migration complete - User is ADMIN');
         return 'admin';
       } catch (migrationError) {
-        console.error('Admin migration failed:', migrationError);
+        console.error('[checkUserRole] Admin migration failed:', migrationError);
         return null;
       }
     }
 
+    console.log('[checkUserRole] No role found for user - returning NULL');
     return null;
   } catch (error) {
-    console.error('Error checking user role:', error);
+    console.error('[checkUserRole] Error checking user role:', error);
     return null;
   }
 };
