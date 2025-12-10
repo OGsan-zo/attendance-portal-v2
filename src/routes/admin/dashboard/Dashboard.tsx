@@ -42,6 +42,7 @@ import { useNavigate } from "react-router-dom";
 import { Employee } from "../../../types";
 import { Select } from "../../../components/ui/select";
 import { useSettings } from "../../../context/SettingsContext";
+import { useAuth } from "../../../context/AuthContext";
 
 interface ActivityItem {
   uid: string;
@@ -57,6 +58,7 @@ type FilterType = "today" | "yesterday" | "custom" | "month";
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { settings: portalSettings } = useSettings();
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
 
@@ -371,14 +373,14 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-blue-600 to-indigo-600 p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#005e7c] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
         {/* Decorative Circles */}
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
 
         <div className="relative z-10">
           <h1 className="text-4xl font-bold tracking-tight">
-            {getGreeting()}, Admin
+            {getGreeting()}, {profile?.name || "Admin"}
           </h1>
           <p className="text-blue-100 mt-2 text-lg">
             Overview for {format(new Date(), "EEEE, MMMM dd, yyyy")}
@@ -798,22 +800,22 @@ export const AdminDashboard: React.FC = () => {
 
         <Card
           className="group bg-white border-none shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden relative"
-          onClick={() => navigate("/admin/attendance")}
+          onClick={() => navigate("/admin/reports")}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardContent className="p-8 flex items-center gap-6 relative z-10">
-            <div className="h-14 w-14 rounded-2xl bg-green-100 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-              <CheckCircle className="h-7 w-7 text-green-600" />
+            <div className="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+              <Banknote className="h-7 w-7 text-emerald-600" />
             </div>
             <div>
-              <h3 className="font-bold text-xl text-slate-800 group-hover:text-green-700 transition-colors">
-                Mark Attendance
+              <h3 className="font-bold text-xl text-slate-800 group-hover:text-emerald-700 transition-colors">
+                Salary Reports
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Update daily records
+                View monthly payroll
               </p>
             </div>
-            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 group-hover:text-green-500 group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="ml-auto h-5 w-5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
           </CardContent>
         </Card>
 

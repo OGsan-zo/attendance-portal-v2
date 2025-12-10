@@ -1,14 +1,33 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui/button";
 import { LogOut, LayoutDashboard, Calendar, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { getPortalSettings } from "../../lib/firestore";
 
 export const EmployeeLayout: React.FC = () => {
-  const { profile, signOut } = useAuth();
+  const { signOut } = useAuth();
   const location = useLocation();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getPortalSettings();
+        if (settings?.logoUrl) {
+          setLogoUrl(settings.logoUrl);
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -28,12 +47,19 @@ export const EmployeeLayout: React.FC = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-primary dark:text-primary tracking-tight">
-                Attendance Portal
-              </h1>
-              <p className="text-sm text-muted-foreground dark:text-gray-400">
-                Welcome, {profile?.name || "Employee"}
-              </p>
+              {loadingSettings ? (
+                <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              ) : logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Portal Logo"
+                  className="h-10 w-auto object-contain"
+                />
+              ) : (
+                <h1 className="text-2xl font-bold text-primary dark:text-primary tracking-tight">
+                  No Logo
+                </h1>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />

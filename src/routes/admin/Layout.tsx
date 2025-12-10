@@ -21,16 +21,23 @@ import { getPortalSettings } from "../../lib/firestore";
 import { ThemeToggle } from "../../components/ThemeToggle";
 
 export const AdminLayout: React.FC = () => {
-  const { profile, signOut } = useAuth();
+  const { signOut } = useAuth();
   const location = useLocation();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
-      const settings = await getPortalSettings();
-      if (settings?.logoUrl) {
-        setLogoUrl(settings.logoUrl);
+      try {
+        const settings = await getPortalSettings();
+        if (settings?.logoUrl) {
+          setLogoUrl(settings.logoUrl);
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      } finally {
+        setLoadingSettings(false);
       }
     };
     loadSettings();
@@ -63,7 +70,11 @@ export const AdminLayout: React.FC = () => {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="p-6">
-        {logoUrl ? (
+        {loadingSettings ? (
+          <div className="space-y-2">
+            <div className="h-12 w-full bg-gray-200 dark:bg-gray-500 rounded animate-pulse" />
+          </div>
+        ) : logoUrl ? (
           <img
             src={logoUrl}
             alt="Portal Logo"
@@ -71,12 +82,9 @@ export const AdminLayout: React.FC = () => {
           />
         ) : (
           <h1 className="text-2xl font-bold text-primary dark:text-primary">
-            Admin Portal
+            No Logo
           </h1>
         )}
-        <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">
-          {profile?.name || "Administrator"}
-        </p>
       </div>
 
       <nav className="px-3 space-y-1 flex-1">
