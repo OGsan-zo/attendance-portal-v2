@@ -32,8 +32,6 @@ import { getSalaryMonthKey } from "../../../lib/salary";
 import {
   format,
   subMonths,
-  isSameMonth,
-  startOfMonth,
   subDays,
   eachDayOfInterval,
   isValid,
@@ -41,7 +39,7 @@ import {
 } from "date-fns";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Employee, AttendanceRecord } from "../../../types";
+import { Employee } from "../../../types";
 import { Select } from "../../../components/ui/select";
 import { useSettings } from "../../../context/SettingsContext";
 
