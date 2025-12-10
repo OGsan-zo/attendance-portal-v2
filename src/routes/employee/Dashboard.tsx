@@ -291,19 +291,31 @@ export const EmployeeDashboard: React.FC = () => {
   const handleCaptureAndSubmit = async () => {
     if (!user || !pendingAction) return;
 
+    let imageUrl: string | undefined;
     const imageSrc = captureImage();
-    if (!imageSrc) {
-      toast.error("Failed to capture image");
-      return;
-    }
 
     try {
       setMarking(true);
-      stopCamera(); // Stop camera immediately after capture
-      setShowCamera(false);
 
-      // 1. Upload Image
-      const imageUrl = await uploadAttendanceImage(user.uid, imageSrc);
+      if (imageSrc) {
+        try {
+          // 1. Upload Image (Attempt)
+          imageUrl = await uploadAttendanceImage(user.uid, imageSrc);
+        } catch (uploadError) {
+          console.error(
+            "Image upload failed, proceeding without image:",
+            uploadError
+          );
+          toast.error("Image upload failed. Marking attendance without photo.");
+          // Proceed without imageUrl
+        }
+      } else {
+        console.warn("Image capture failed or was skipped.");
+        // Proceed without imageUrl
+      }
+
+      stopCamera(); // Stop camera immediately
+      setShowCamera(false);
 
       // 2. Mark Attendance
       if (pendingAction.type === "present") {
@@ -315,7 +327,11 @@ export const EmployeeDashboard: React.FC = () => {
           false,
           imageUrl
         );
-        toast.success("Attendance marked successfully with photo!");
+        toast.success(
+          imageUrl
+            ? "Attendance marked successfully with photo!"
+            : "Attendance marked successfully (no photo)"
+        );
       } else if (pendingAction.type === "early-off") {
         await markAttendance(
           user.uid,
@@ -325,7 +341,37 @@ export const EmployeeDashboard: React.FC = () => {
           true,
           imageUrl
         );
-        toast.success("Out time marked successfully with photo!");
+        toast.success(
+          imageUrl
+            ? "Out time marked successfully with photo!"
+            : "Out time marked successfully (no photo)"
+        );
+      }
+
+      await loadData();
+    } catch (error: any) {
+      console.error("Error marking attendance:", error);
+      toast.error(error.message || "Failed to mark attendance");
+    } finally {
+      setMarking(false);
+      setPendingAction(null);
+    }
+  };
+
+  const handleSkipPhoto = async () => {
+    if (!user || !pendingAction) return;
+
+    try {
+      setMarking(true);
+      stopCamera();
+      setShowCamera(false);
+
+      if (pendingAction.type === "present") {
+        await markAttendance(user.uid, "present", "self", undefined, false);
+        toast.success("Attendance marked successfully (skipped photo)");
+      } else if (pendingAction.type === "early-off") {
+        await markAttendance(user.uid, "present", "self", undefined, true);
+        toast.success("Out time marked successfully (skipped photo)");
       }
 
       await loadData();
@@ -493,23 +539,32 @@ export const EmployeeDashboard: React.FC = () => {
             <Button variant="ghost" onClick={handleCloseCamera}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCaptureAndSubmit}
-              disabled={!stream || marking}
-              className="w-full sm:w-auto"
-            >
-              {marking ? (
-                <>
-                  <div className="h-4 w-4 mr-2 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Camera className="h-4 w-4 mr-2" />
-                  Capture & Mark
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={handleSkipPhoto}
+                disabled={marking}
+              >
+                Skip Photo
+              </Button>
+              <Button
+                onClick={handleCaptureAndSubmit}
+                disabled={!stream || marking}
+                className="w-full sm:w-auto"
+              >
+                {marking ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Capture & Mark
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
