@@ -17,31 +17,25 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getPortalSettings } from "../../lib/firestore";
+import { useSettings } from "../../context/SettingsContext";
+import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggle } from "../../components/ThemeToggle";
 
 export const AdminLayout: React.FC = () => {
   const { signOut } = useAuth();
+  const { settings, loading: loadingSettings } = useSettings();
+  const { theme } = useTheme();
   const location = useLocation();
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [loadingSettings, setLoadingSettings] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settings = await getPortalSettings();
-        if (settings?.logoUrl) {
-          setLogoUrl(settings.logoUrl);
-        }
-      } catch (error) {
-        console.error("Failed to load settings:", error);
-      } finally {
-        setLoadingSettings(false);
-      }
-    };
-    loadSettings();
-  }, []);
+  const logoUrl =
+    theme === "dark"
+      ? settings?.portalDarkLogoUrl ||
+        settings?.darkLogoUrl ||
+        settings?.logoUrl
+      : settings?.portalLightLogoUrl ||
+        settings?.lightLogoUrl ||
+        settings?.logoUrl;
 
   const handleSignOut = async () => {
     try {

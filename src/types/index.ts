@@ -74,7 +74,13 @@ export interface AttendanceStats {
 
 export interface PortalSettings {
   currency?: string;
-  logoUrl?: string;
+  logoUrl?: string; // Deprecated, kept for backward compatibility
+  darkLogoUrl?: string; // Deprecated
+  lightLogoUrl?: string; // Deprecated
+  portalLightLogoUrl?: string;
+  portalDarkLogoUrl?: string;
+  loginLightLogoUrl?: string;
+  loginDarkLogoUrl?: string;
   salaryStartDay?: number;
   officeStartTime?: string; // "HH:mm"
   officeEndTime?: string;   // "HH:mm"

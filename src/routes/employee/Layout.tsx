@@ -5,29 +5,23 @@ import { Button } from "../../components/ui/button";
 import { LogOut, LayoutDashboard, Calendar, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "../../components/ThemeToggle";
-import { getPortalSettings } from "../../lib/firestore";
+import { useSettings } from "../../context/SettingsContext";
+import { useTheme } from "../../context/ThemeContext";
 
 export const EmployeeLayout: React.FC = () => {
   const { signOut } = useAuth();
+  const { settings, loading: loadingSettings } = useSettings();
+  const { theme } = useTheme();
   const location = useLocation();
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [loadingSettings, setLoadingSettings] = useState(true);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settings = await getPortalSettings();
-        if (settings?.logoUrl) {
-          setLogoUrl(settings.logoUrl);
-        }
-      } catch (error) {
-        console.error("Failed to load settings:", error);
-      } finally {
-        setLoadingSettings(false);
-      }
-    };
-    loadSettings();
-  }, []);
+  const logoUrl =
+    theme === "dark"
+      ? settings?.portalDarkLogoUrl ||
+        settings?.darkLogoUrl ||
+        settings?.logoUrl
+      : settings?.portalLightLogoUrl ||
+        settings?.lightLogoUrl ||
+        settings?.logoUrl;
 
   const handleSignOut = async () => {
     try {

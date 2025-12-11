@@ -12,6 +12,12 @@ interface SettingsContextType {
   officeEndTime: string;
   lateMarkAfterMinutes: number;
   enableCameraCapture: boolean;
+  lightLogoUrl?: string;
+  darkLogoUrl?: string;
+  portalLightLogoUrl?: string;
+  portalDarkLogoUrl?: string;
+  loginLightLogoUrl?: string;
+  loginDarkLogoUrl?: string;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -74,6 +80,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         officeEndTime,
         lateMarkAfterMinutes,
         enableCameraCapture: settings?.enableCameraCapture || false,
+        lightLogoUrl: settings?.lightLogoUrl || settings?.logoUrl,
+        darkLogoUrl: settings?.darkLogoUrl || settings?.logoUrl,
+        portalLightLogoUrl:
+          settings?.portalLightLogoUrl ||
+          settings?.lightLogoUrl ||
+          settings?.logoUrl,
+        portalDarkLogoUrl:
+          settings?.portalDarkLogoUrl ||
+          settings?.darkLogoUrl ||
+          settings?.logoUrl,
+        loginLightLogoUrl:
+          settings?.loginLightLogoUrl ||
+          settings?.lightLogoUrl ||
+          settings?.logoUrl,
+        loginDarkLogoUrl:
+          settings?.loginDarkLogoUrl ||
+          settings?.darkLogoUrl ||
+          settings?.logoUrl,
       }}
     >
       {children}

@@ -20,7 +20,12 @@ export const Settings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState("INR");
-  const [logoUrl, setLogoUrl] = useState("");
+  const [lightLogoUrl, setLightLogoUrl] = useState("");
+  const [darkLogoUrl, setDarkLogoUrl] = useState("");
+  const [portalLightLogoUrl, setPortalLightLogoUrl] = useState("");
+  const [portalDarkLogoUrl, setPortalDarkLogoUrl] = useState("");
+  const [loginLightLogoUrl, setLoginLightLogoUrl] = useState("");
+  const [loginDarkLogoUrl, setLoginDarkLogoUrl] = useState("");
   const [salaryStartDay, setSalaryStartDay] = useState(6);
   const [officeStartTime, setOfficeStartTime] = useState("10:00");
   const [officeEndTime, setOfficeEndTime] = useState("18:00");
@@ -36,7 +41,32 @@ export const Settings: React.FC = () => {
       const settings = await getPortalSettings();
       if (settings) {
         setCurrency(settings.currency || "INR");
-        setLogoUrl(settings.logoUrl || "");
+        setLightLogoUrl(settings.lightLogoUrl || settings.logoUrl || "");
+        setDarkLogoUrl(settings.darkLogoUrl || settings.logoUrl || "");
+        setPortalLightLogoUrl(
+          settings.portalLightLogoUrl ||
+            settings.lightLogoUrl ||
+            settings.logoUrl ||
+            ""
+        );
+        setPortalDarkLogoUrl(
+          settings.portalDarkLogoUrl ||
+            settings.darkLogoUrl ||
+            settings.logoUrl ||
+            ""
+        );
+        setLoginLightLogoUrl(
+          settings.loginLightLogoUrl ||
+            settings.lightLogoUrl ||
+            settings.logoUrl ||
+            ""
+        );
+        setLoginDarkLogoUrl(
+          settings.loginDarkLogoUrl ||
+            settings.darkLogoUrl ||
+            settings.logoUrl ||
+            ""
+        );
         setSalaryStartDay(settings.salaryStartDay || 6);
         setOfficeStartTime(settings.officeStartTime || "10:00");
         setOfficeEndTime(settings.officeEndTime || "18:00");
@@ -56,7 +86,13 @@ export const Settings: React.FC = () => {
       setSaving(true);
       await updatePortalSettings({
         currency,
-        logoUrl,
+        lightLogoUrl,
+        darkLogoUrl,
+        portalLightLogoUrl,
+        portalDarkLogoUrl,
+        loginLightLogoUrl,
+        loginDarkLogoUrl,
+        logoUrl: lightLogoUrl, // Fallback for backward compatibility
         salaryStartDay,
         officeStartTime,
         officeEndTime,
@@ -190,28 +226,107 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="logo">Logo URL</Label>
-              <Input
-                id="logo"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://example.com/logo.png"
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter a direct URL to your logo image.
-              </p>
-            </div>
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">
+                  Portal Logos (Dashboard)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="portalLightLogo">Light Mode Logo</Label>
+                    <Input
+                      id="portalLightLogo"
+                      value={portalLightLogoUrl}
+                      onChange={(e) => setPortalLightLogoUrl(e.target.value)}
+                      placeholder="https://example.com/portal-logo-dark.png"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used on the dashboard when in light mode.
+                    </p>
+                    {portalLightLogoUrl && (
+                      <div className="mt-2 p-4 border rounded-lg bg-white flex items-center justify-center">
+                        <img
+                          src={portalLightLogoUrl}
+                          alt="Portal Light Logo Preview"
+                          className="h-16 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
 
-            {logoUrl && (
-              <div className="mt-4 p-4 border rounded-lg bg-slate-50 flex items-center justify-center">
-                <img
-                  src={logoUrl}
-                  alt="Logo Preview"
-                  className="h-16 object-contain"
-                />
+                  <div className="space-y-2">
+                    <Label htmlFor="portalDarkLogo">Dark Mode Logo</Label>
+                    <Input
+                      id="portalDarkLogo"
+                      value={portalDarkLogoUrl}
+                      onChange={(e) => setPortalDarkLogoUrl(e.target.value)}
+                      placeholder="https://example.com/portal-logo-light.png"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used on the dashboard when in dark mode.
+                    </p>
+                    {portalDarkLogoUrl && (
+                      <div className="mt-2 p-4 border rounded-lg bg-slate-950 flex items-center justify-center">
+                        <img
+                          src={portalDarkLogoUrl}
+                          alt="Portal Dark Logo Preview"
+                          className="h-16 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Login Page Logos</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="loginLightLogo">Light Mode Logo</Label>
+                    <Input
+                      id="loginLightLogo"
+                      value={loginLightLogoUrl}
+                      onChange={(e) => setLoginLightLogoUrl(e.target.value)}
+                      placeholder="https://example.com/login-logo-dark.png"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used on the Employee Login page (Light Theme).
+                    </p>
+                    {loginLightLogoUrl && (
+                      <div className="mt-2 p-4 border rounded-lg bg-white flex items-center justify-center">
+                        <img
+                          src={loginLightLogoUrl}
+                          alt="Login Light Logo Preview"
+                          className="h-16 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="loginDarkLogo">Dark Mode Logo</Label>
+                    <Input
+                      id="loginDarkLogo"
+                      value={loginDarkLogoUrl}
+                      onChange={(e) => setLoginDarkLogoUrl(e.target.value)}
+                      placeholder="https://example.com/login-logo-light.png"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used on the Admin Login page (Dark Theme).
+                    </p>
+                    {loginDarkLogoUrl && (
+                      <div className="mt-2 p-4 border rounded-lg bg-slate-950 flex items-center justify-center">
+                        <img
+                          src={loginDarkLogoUrl}
+                          alt="Login Dark Logo Preview"
+                          className="h-16 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <Button type="submit" disabled={saving}>
               <Save className="mr-2 h-4 w-4" />

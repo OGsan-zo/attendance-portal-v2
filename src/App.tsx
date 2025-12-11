@@ -38,7 +38,7 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
-              <Route path="/admin-login" element={<AdminLogin />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/access-denied" element={<AccessDenied />} />
 
               {/* Employee Routes */}
@@ -86,7 +86,7 @@ function App() {
             </Routes>
           </BrowserRouter>
 
-          <Toaster position="top-right" richColors />
+          <Toaster position="bottom-right" richColors />
         </SettingsProvider>
       </AuthProvider>
     </ThemeProvider>
